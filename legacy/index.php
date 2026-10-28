@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             $q->execute([trim($_POST['business_name']),$_POST['business_type'],trim($_POST['currency']),trim($_POST['company_address'] ?? ''),trim($_POST['phone'] ?? ''),trim($_POST['email'] ?? ''),$logoPath,trim($_POST['header_text'] ?? '')]);
             $msg='تنظیمات کسب‌وکار ذخیره شد.';
         }
-    } catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); $msg='خطا: '.$e->getMessage(); }
+    } catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); error_log('Accounting application error: '.$e->getMessage()); $msg='عملیات انجام نشد. لطفاً اطلاعات را بررسی کنید و دوباره تلاش کنید.'; }
 }
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
 $products=$pdo->query('SELECT * FROM products ORDER BY name')->fetchAll();
