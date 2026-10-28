@@ -1,6 +1,5 @@
 <?php
 declare(strict_types=1);
-session_start();
 $configFile=dirname(__DIR__).'/config.php';
 if(!is_file($configFile)){http_response_code(500);exit('ابتدا config.php را تنظیم کنید.');}
 $c=require $configFile;
@@ -23,10 +22,7 @@ if($report==='trial'){
  $q=$db->prepare('SELECT e.id,e.entry_date,e.description,e.source_type,a.code,a.title,l.debit,l.credit FROM journal_entries e JOIN journal_lines l ON l.entry_id=e.id JOIN accounts a ON a.id=l.account_id WHERE e.entry_date BETWEEN ? AND ? ORDER BY e.entry_date,e.id,l.id');$q->execute([$from,$to]);$rows=$q->fetchAll();
 }
 ?><!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=h($title)?></title>
-<style>
-body{font-family:Tahoma,Arial,sans-serif;background:#f3f5f8;color:#222;margin:0}main{max-width:1100px;margin:24px auto;padding:18px}section,.paper{background:#fff;padding:20px;border-radius:10px;margin-bottom:16px}input,select,button{padding:9px;margin:4px;border:1px solid #aaa;border-radius:5px}button{background:#174ea6;color:white;cursor:pointer}.head{border-bottom:2px solid #333;padding-bottom:12px;margin-bottom:16px}.muted{color:#555;font-size:12px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border:1px solid #bbb;padding:8px;text-align:right}th{background:#eee}.actions{display:flex;gap:8px;flex-wrap:wrap}
-@page{size:A4 portrait;margin:12mm}@media print{body{background:white;font-size:11px}main{max-width:none;margin:0;padding:0}.no-print{display:none!important}.paper{padding:0;margin:0;border-radius:0}table{font-size:10px;page-break-inside:auto}tr{page-break-inside:avoid;page-break-after:auto}thead{display:table-header-group}.head{margin-bottom:10px}}
-</style></head><body><main>
+<link rel="stylesheet" href="assets/css/app.css"></head><body><main>
 <section class="no-print"><h2>مرکز چاپ و گزارش‌ها</h2><form method="get"><label>نوع گزارش <select name="report"><option value="journal" <?=$report==='journal'?'selected':''?>>دفتر روزنامه</option><option value="trial" <?=$report==='trial'?'selected':''?>>تراز آزمایشی</option><option value="transactions" <?=$report==='transactions'?'selected':''?>>خرید و فروش</option></select></label><label>از تاریخ <input type="date" name="from" value="<?=h($from)?>" required></label><label>تا تاریخ <input type="date" name="to" value="<?=h($to)?>" required></label><button>نمایش گزارش</button></form><div class="actions"><button type="button" onclick="window.print()">چاپ / ذخیره PDF</button><a href="index.php">بازگشت</a></div></section>
 <div class="paper"><div class="head"><h2><?=h($settings['business_name'])?></h2><h3><?=h($title)?></h3><div>بازه گزارش: <?=h($from)?> تا <?=h($to)?></div><div class="muted">تاریخ تهیه: <?=date('Y-m-d H:i')?> | واحد پول: <?=h($settings['currency'])?></div></div>
 <?php if($report==='trial'):?><table><thead><tr><th>کد حساب</th><th>نام حساب</th><th>بدهکار</th><th>بستانکار</th></tr></thead><tbody><?php $td=$tc=0;foreach($rows as $r):$td+=(float)$r['debit'];$tc+=(float)$r['credit'];?><tr><td><?=h($r['code'])?></td><td><?=h($r['title'])?></td><td><?=number_format((float)$r['debit'],2)?></td><td><?=number_format((float)$r['credit'],2)?></td></tr><?php endforeach;?></tbody><tfoot><tr><th colspan="2">جمع</th><th><?=number_format($td,2)?></th><th><?=number_format($tc,2)?></th></tr></tfoot></table>
