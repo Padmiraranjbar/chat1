@@ -10,6 +10,7 @@ function ensureChartOfAccounts(PDO $pdo): void {
     foreach ($pdo->query('SHOW COLUMNS FROM accounts')->fetchAll() as $column) {
         $columns[$column['Field']] = $column;
     }
+    if (stripos((string)($columns['id']['Extra'] ?? ''), 'auto_increment') === false) $pdo->exec('ALTER TABLE accounts MODIFY id INT NOT NULL AUTO_INCREMENT');
     if (!isset($columns['parent_id'])) $pdo->exec('ALTER TABLE accounts ADD COLUMN parent_id INT NULL');
     if (!isset($columns['level'])) $pdo->exec("ALTER TABLE accounts ADD COLUMN level ENUM('group','general','subsidiary','detail') NOT NULL DEFAULT 'detail'");
     if (!isset($columns['is_postable'])) $pdo->exec('ALTER TABLE accounts ADD COLUMN is_postable TINYINT(1) NOT NULL DEFAULT 1');
