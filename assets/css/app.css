@@ -55,3 +55,13 @@ img,svg,video{max-width:100%;height:auto}
   main{width:auto;max-width:none;padding:0}
   table{display:table;overflow:visible;white-space:normal}
 }
+
+
+.upload-label{display:flex;flex:1 1 100%;flex-direction:column;gap:8px;padding:12px;border:1px dashed #b8c4d6;border-radius:10px;color:#344054}
+.company-logo-preview{display:block;max-width:160px;max-height:100px;object-fit:contain;margin-top:8px}
+.letterhead{display:flex;align-items:center;gap:18px;margin-bottom:14px}
+.letterhead-logo{max-width:120px;max-height:90px;object-fit:contain}
+.letterhead-info{min-width:0}
+.letterhead-info h2{margin:0 0 6px}
+.letterhead-info div{margin:2px 0}
+@media(max-width:600px){.letterhead{align-items:flex-start;gap:10px}.letterhead-logo{max-width:80px;max-height:70px}}
