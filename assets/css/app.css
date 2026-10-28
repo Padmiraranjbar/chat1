@@ -132,3 +132,48 @@ pre{max-width:100%;overflow:auto;white-space:pre-wrap;direction:ltr;text-align:l
 @keyframes dbuy-logo-shine{0%{transform:translate(-130%,-130%)}100%{transform:translate(130%,130%)}}
 @media(prefers-reduced-motion:reduce){.page-turn-overlay,.brand-flight-wrap,.brand-flight{display:none!important;animation:none!important}}
 @media print{.page-turn-overlay,.brand-flight-wrap,.brand-flight{display:none!important}}
+
+
+/* User-controlled appearance settings; all color inputs use the browser's native color picker */
+:root{--user-bg:#f3f5f8;--user-text:#202938;--user-button:#174ea6;--user-card:#fff;--user-shadow:0 3px 14px rgba(0,0,0,.08)}
+body{background:var(--user-bg)!important;color:var(--user-text)!important}
+section,.paper,.nav-card,.report-card,.report-chart-wrap,.product-suggestions,.result-dialog,.appearance-settings-dialog{background:var(--user-card);color:var(--user-text)}
+.nav-card,.report-card,.report-chart-wrap,section,.paper{box-shadow:var(--user-shadow)}
+button,.appearance-settings-button{background:var(--user-button);color:#fff;border-color:var(--user-button)}
+a{color:var(--user-button)}
+input,select,textarea{background:var(--user-card);color:var(--user-text)}
+.dashboard-nav .sale-card{background:var(--user-card)}
+:root[data-appearance-theme="dark"] body{color:var(--user-text)!important}
+:root[data-appearance-theme="dark"] section,
+:root[data-appearance-theme="dark"] .paper,
+:root[data-appearance-theme="dark"] .nav-card,
+:root[data-appearance-theme="dark"] .report-card,
+:root[data-appearance-theme="dark"] .report-chart-wrap,
+:root[data-appearance-theme="dark"] .product-suggestions,
+:root[data-appearance-theme="dark"] .product-suggestion,
+:root[data-appearance-theme="dark"] .result-dialog{background:var(--user-card);color:var(--user-text);border-color:#374151}
+:root[data-appearance-theme="dark"] input,
+:root[data-appearance-theme="dark"] select,
+:root[data-appearance-theme="dark"] textarea{background:#111827;color:var(--user-text);border-color:#4b5563}
+:root[data-appearance-theme="dark"] .nav-card small,
+:root[data-appearance-theme="dark"] .app-header p,
+:root[data-appearance-theme="dark"] .report-card span,
+:root[data-appearance-theme="dark"] .report-card small{color:#cbd5e1}
+:root[data-appearance-theme="dark"] .keyboard-hint{background:#1e3a8a;color:#dbeafe}
+.appearance-settings-button{position:fixed;z-index:9000;right:16px;bottom:16px;border:0;border-radius:999px;padding:11px 16px;box-shadow:0 5px 20px #0003;cursor:pointer}
+.appearance-settings-dialog{width:min(460px,calc(100vw - 28px));max-height:calc(100dvh - 36px);overflow:auto;border:1px solid #cbd5e1;border-radius:18px;padding:22px;box-shadow:0 24px 90px #0005}
+.appearance-settings-dialog::backdrop{background:rgba(15,23,42,.58);backdrop-filter:blur(3px)}
+.appearance-settings-dialog h2{margin:0 0 6px}
+.appearance-settings-intro{font-size:13px;color:#667085;line-height:1.8}
+.appearance-settings-form{display:flex;flex-direction:column;gap:12px}
+.appearance-color-row,.appearance-range-row,.appearance-dark-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #e2e8f0}
+.appearance-color-row input[type=color]{flex:0 0 58px;width:58px;height:42px;padding:3px;cursor:pointer}
+.appearance-range-row input[type=range]{flex:1 1 auto;min-width:70px}
+.appearance-range-row output{min-width:38px;text-align:left;font-size:13px}
+.appearance-dark-row{justify-content:flex-start}
+.appearance-dark-row input{flex:0 0 auto;width:20px;height:20px}
+.appearance-settings-actions{display:flex;justify-content:space-between;gap:10px;margin-top:18px;flex-wrap:wrap}
+.appearance-settings-actions button{margin:0}
+.appearance-settings-actions .appearance-reset{background:transparent;color:var(--user-text);border:1px solid #9ca3af}
+@media(max-width:480px){.appearance-settings-button{right:10px;bottom:10px}.appearance-settings-dialog{padding:16px}.appearance-settings-actions button{flex:1 1 100%}}
+@media print{.appearance-settings-button,.appearance-settings-dialog{display:none!important}}
