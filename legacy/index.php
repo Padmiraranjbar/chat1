@@ -1,7 +1,6 @@
 <?php
 declare(strict_types=1);
-session_start();
-$configFile = __DIR__ . '/config.php';
+$configFile = dirname(__DIR__) . '/config.php';
 if (!is_file($configFile)) { http_response_code(500); exit('ابتدا config.example.php را به config.php کپی و تنظیم کنید.'); }
 $c = require $configFile;
 $pdo = new PDO("mysql:host={$c['host']};dbname={$c['database']};charset=utf8mb4", $c['username'], $c['password'], [
@@ -56,7 +55,7 @@ $entries=$pdo->query('SELECT e.id,e.entry_date,e.description,a.title,l.debit,l.c
 $balances=$pdo->query('SELECT a.code,a.title,a.type,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounts a LEFT JOIN journal_lines l ON l.account_id=a.id GROUP BY a.id ORDER BY a.code')->fetchAll();
 ?>
 <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>حسابداری هوشمند</title>
-<style>body{font-family:Tahoma,Arial;background:#f4f6fa;margin:0;color:#202938}main{max-width:1100px;margin:auto;padding:20px}section{background:white;padding:18px;margin:14px 0;border-radius:12px;box-shadow:0 2px 10px #0001}input,select,button{padding:10px;margin:5px;border:1px solid #ccd2dc;border-radius:6px}button{background:#174ea6;color:white;cursor:pointer}table{border-collapse:collapse;width:100%;overflow:auto}td,th{border-bottom:1px solid #ddd;padding:9px;text-align:right}.msg{background:#e7f5e8;padding:12px;border-radius:8px}</style></head><body><main>
+<link rel="stylesheet" href="assets/css/app.css"></head><body><main>
 <h1>حسابداری هوشمند</h1><?php if($msg): ?><p class="msg"><?=h($msg)?></p><?php endif; ?>
 <section><h2>تنظیمات کسب‌وکار</h2><form method="post"><input type="hidden" name="csrf" value="<?=h($_SESSION['csrf'])?>"><input type="hidden" name="action" value="settings"><input name="business_name" value="<?=h($settings['business_name'])?>" placeholder="نام کسب‌وکار"><select name="business_type"><?php foreach(['store'=>'فروشگاه','company'=>'شرکت','personal'=>'شخصی','custom'=>'سفارشی'] as $k=>$v): ?><option value="<?=$k?>" <?=$settings['business_type']===$k?'selected':''?>><?=$v?></option><?php endforeach; ?></select><input name="currency" value="<?=h($settings['currency'])?>" placeholder="واحد پول"><button>ذخیره</button></form></section>
 <section><h2>تعریف کالا</h2><form method="post"><input type="hidden" name="csrf" value="<?=h($_SESSION['csrf'])?>"><input type="hidden" name="action" value="product"><input name="name" required placeholder="نام کالا"><input name="sku" placeholder="کد کالا"><input type="number" step=".01" min="0" name="purchase_price" placeholder="قیمت خرید"><input type="number" step=".01" min="0" name="sale_price" placeholder="قیمت فروش"><button>ثبت کالا</button></form></section>
