@@ -104,6 +104,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$date)||!checkdate((int)substr($date,5,2),(int)substr($date,8,2),(int)substr($date,0,4))||$amount===false||!is_finite((float)$amount))throw new RuntimeException('تاریخ یا مبلغ گردش بانک نامعتبر است.');
     $q=$db->prepare('INSERT INTO bank_statement_lines(statement_date,description,reference_no,amount) VALUES(?,?,?,?)');
     $q->execute([$date,substr(trim((string)$r['description']),0,255),substr(trim((string)$r['reference_no']),0,100),(float)$amount]);
+    $bankRowId=(int)$db->lastInsertId();
+    $match=$db->prepare("SELECT l.id FROM journal_lines l JOIN journal_entries e ON e.id=l.entry_id JOIN accounts a ON a.id=l.account_id WHERE e.entry_date=? AND ROUND(l.debit-l.credit,2)=ROUND(?,2) AND (a.title LIKE '%بانک%' OR a.title LIKE '%صندوق%' OR a.title LIKE '%bank%' OR a.title LIKE '%cash%') AND NOT EXISTS (SELECT 1 FROM bank_statement_lines b2 WHERE b2.matched_journal_line_id=l.id) ORDER BY l.id LIMIT 1");
+    $match->execute([$date,(float)$amount]);$matchedLine=$match->fetchColumn();
+    if($matchedLine){$u=$db->prepare("UPDATE bank_statement_lines SET match_status='matched',matched_journal_line_id=? WHERE id=?");$u->execute([(int)$matchedLine,$bankRowId]);}
    }else throw new RuntimeException('نوع ورود اطلاعات معتبر نیست.');
    $count++;
   }
