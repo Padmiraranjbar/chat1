@@ -65,3 +65,14 @@ img,svg,video{max-width:100%;height:auto}
 .letterhead-info h2{margin:0 0 6px}
 .letterhead-info div{margin:2px 0}
 @media(max-width:600px){.letterhead{align-items:flex-start;gap:10px}.letterhead-logo{max-width:80px;max-height:70px}}
+
+
+/* Success and error dialogs */
+.result-dialog{position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);z-index:1002;width:min(420px,calc(100vw - 32px));max-width:420px;margin:0;padding:28px 24px;border:0;border-radius:18px;background:#fff;color:#202938;text-align:center;box-shadow:0 24px 80px #0004}
+.result-dialog h2{margin:8px 0;font-size:24px;color:#176b42}
+.result-dialog p{margin:8px 0 20px;line-height:1.9}
+.result-dialog button{min-width:130px}
+.dialog-mark{display:flex;align-items:center;justify-content:center;width:54px;height:54px;margin:0 auto 8px;border-radius:50%;background:#e4f7eb;color:#16834b;font-size:32px;font-weight:bold}
+.dialog-backdrop{position:fixed;inset:0;z-index:1001;background:rgba(15,23,42,.48);backdrop-filter:blur(2px)}
+.error-msg{background:#fff0f0!important;color:#9b1c1c;border:1px solid #f2b8b8}
+body.dialog-visible{overflow:hidden}
