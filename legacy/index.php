@@ -60,6 +60,9 @@ if (!isset($transactionColumns['cost_total'])) {
     // Historical sales did not store cost; estimate them using the current product purchase price.
     $pdo->exec("UPDATE transactions t JOIN products p ON p.id=t.product_id SET t.cost_total=ROUND(t.quantity*p.purchase_price,2) WHERE t.txn_type='sale' AND t.cost_total=0");
 }
+$allowedPages=['dashboard','product','crm','purchase','sale','settings','reports','balances','journal'];
+$currentPage=(string)($_GET['page']??'dashboard');
+if(!in_array($currentPage,$allowedPages,true))$currentPage='dashboard';
 $msg='';
 $isSuccess=false;
 if ($_SERVER['REQUEST_METHOD']==='POST') {
@@ -136,7 +139,13 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             $msg='ثبت شد؛ تنظیمات ذخیره شد.'; $isSuccess=true;
         }
     } catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); error_log('Accounting application error: '.$e->getMessage()); $msg='عملیات انجام نشد. لطفاً اطلاعات را بررسی کنید و دوباره تلاش کنید.'; $isSuccess=false; }
-    if ($isSuccess) { $_SESSION['flash_success']=$msg; header('Location: index.php'); exit; }
+    if ($isSuccess) {
+        $_SESSION['flash_success']=$msg;
+        $redirectPage=match((string)($_POST['action']??'')){
+            'product'=>'product','customer','customer_update'=>'crm','purchase'=>'purchase','sale'=>'sale','settings'=>'settings',default=>'dashboard'
+        };
+        header('Location: index.php?page='.$redirectPage); exit;
+    }
 }
 if (isset($_SESSION['flash_success'])) { $msg=(string)$_SESSION['flash_success']; $isSuccess=true; unset($_SESSION['flash_success']); }
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
@@ -158,9 +167,24 @@ $entries=$pdo->query('SELECT e.id,e.entry_date,e.description,a.title,l.debit,l.c
 $balances=$pdo->query('SELECT a.code,a.title,a.type,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounts a LEFT JOIN journal_lines l ON l.account_id=a.id WHERE a.is_postable=1 GROUP BY a.id ORDER BY a.code')->fetchAll();
 ?>
 <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>حسابداری هوشمند</title>
-<link rel="stylesheet" href="assets/css/app.css"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#174ea6"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="حسابداری"><script src="assets/js/pwa.js" defer></script></head><body><main>
+<link rel="stylesheet" href="assets/css/app.css"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#174ea6"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="حسابداری"><script src="assets/js/pwa.js" defer></script></head><body data-current-page="<?=h($currentPage)?>"><main>
 <header class="app-header"><div><h1>حسابداری هوشمند</h1><p>دسترسی سریع به بخش‌های اصلی</p></div><span class="keyboard-hint">F2 کالا | F3 خرید | F4 فروش</span></header><?php if($msg && !$isSuccess): ?><p class="msg error-msg"><?=h($msg)?></p><?php endif; ?>
-<?php if($isSuccess): ?><dialog id="result-dialog" class="result-dialog" open aria-labelledby="result-title"><div class="dialog-mark" aria-hidden="true">✓</div><h2 id="result-title">ثبت شد</h2><p><?=h($msg)?></p><button type="button" id="close-result-dialog" autofocus>متوجه شدم</button></dialog><div class="dialog-backdrop"></div><script>document.body.classList.add('dialog-visible');document.getElementById('close-result-dialog').addEventListener('click',function(){document.getElementById('result-dialog').close();document.querySelector('.dialog-backdrop').remove();document.body.classList.remove('dialog-visible')});</script><?php endif; ?><nav class="dashboard-nav" aria-label="منوی سریع"><a class="nav-card" href="#product"><span class="nav-icon">[ک]</span><strong>تعریف کالا</strong><small>F2</small></a><a class="nav-card" href="#crm"><strong>CRM مشتریان</strong><small>تلفن، نشانی و سابقه خرید</small></a><a class="nav-card" href="#purchase"><span class="nav-icon">[خ]</span><strong>خرید کالا</strong><small>F3</small></a><a class="nav-card sale-card" href="#sale"><span class="nav-icon">[ف]</span><strong>فروش کالا</strong><small>F4</small></a><a class="nav-card" href="index.php?route=accounts"><strong>کدینگ حساب‌ها</strong><small>گروه، کل، معین، تفصیلی</small></a><a class="nav-card" href="#settings"><strong>تنظیمات شرکت</strong><small>آرم و تلفن</small></a><a class="nav-card" href="#appearance-settings-button"><strong>تنظیمات ظاهر</strong><small>رنگ‌ها، سایه و حالت تاریک</small></a><a class="nav-card" href="#journal"><strong>دفتر روزنامه</strong></a><a class="nav-card" href="#balances"><strong>تراز آزمایشی</strong></a><a class="nav-card" href="#reports"><strong>گزارش خرید و فروش</strong><small>سود روزانه و نمودار</small></a><a class="nav-card" href="index.php?route=fiscal-years"><strong>سال مالی</strong></a><a class="nav-card" href="index.php?route=print"><strong>گزارش و خروجی</strong></a><a class="nav-card" href="index.php?route=data-exchange"><strong>ورود اطلاعات از اکسل</strong></a></nav>
+<?php if($isSuccess): ?><dialog id="result-dialog" class="result-dialog" open aria-labelledby="result-title"><div class="dialog-mark" aria-hidden="true">✓</div><h2 id="result-title">ثبت شد</h2><p><?=h($msg)?></p><button type="button" id="close-result-dialog" autofocus>متوجه شدم</button></dialog><div class="dialog-backdrop"></div><script>document.body.classList.add('dialog-visible');document.getElementById('close-result-dialog').addEventListener('click',function(){document.getElementById('result-dialog').close();document.querySelector('.dialog-backdrop').remove();document.body.classList.remove('dialog-visible')});</script><?php endif; ?><nav class="dashboard-nav" aria-label="منوی اصلی">
+<a class="nav-card" href="index.php?page=product"><span class="nav-icon">[ک]</span><strong>تعریف کالا</strong><small>ثبت و قیمت‌گذاری کالا</small></a>
+<a class="nav-card" href="index.php?page=crm"><strong>مشتریان (CRM)</strong><small>اطلاعات و سابقه خرید</small></a>
+<a class="nav-card" href="index.php?page=purchase"><span class="nav-icon">[خ]</span><strong>ثبت خرید</strong><small>ورود کالا به انبار</small></a>
+<a class="nav-card sale-card" href="index.php?page=sale"><span class="nav-icon">[ف]</span><strong>ثبت فروش</strong><small>فروش و ثبت مشتری</small></a>
+<a class="nav-card" href="index.php?route=accounts"><strong>کدینگ حساب‌ها</strong><small>مدیریت حساب‌ها</small></a>
+<a class="nav-card" href="index.php?page=settings"><strong>تنظیمات شرکت</strong><small>آرم و مشخصات</small></a>
+<a class="nav-card" href="#appearance-settings-button"><strong>تنظیمات ظاهر</strong><small>رنگ، سایه و حالت تاریک</small></a>
+<a class="nav-card" href="index.php?page=journal"><strong>دفتر روزنامه</strong><small>سندهای ثبت‌شده</small></a>
+<a class="nav-card" href="index.php?page=balances"><strong>تراز آزمایشی</strong><small>مانده حساب‌ها</small></a>
+<a class="nav-card" href="index.php?page=reports"><strong>گزارش خرید و فروش</strong><small>مبالغ، سود و نمودار</small></a>
+<a class="nav-card" href="index.php?route=fiscal-years"><strong>سال مالی</strong><small>افتتاح و بستن سال</small></a>
+<a class="nav-card" href="index.php?route=print"><strong>گزارش و خروجی</strong><small>چاپ و فایل Excel</small></a>
+<a class="nav-card" href="index.php?route=data-exchange"><strong>ورود اطلاعات از اکسل</strong><small>ورود گروهی اطلاعات</small></a>
+</nav>
+<div class="page-toolbar" id="page-toolbar"><a class="button-link" href="index.php">← بازگشت به داشبورد</a><span id="current-page-title"></span></div>
 <section id="settings"><h2>تنظیمات شرکت و سربرگ</h2><form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=h($_SESSION['csrf'])?>"><input type="hidden" name="action" value="settings"><input name="business_name" value="<?=h($settings['business_name'])?>" placeholder="نام کسب‌وکار"><select name="business_type"><?php foreach(['store'=>'فروشگاه','company'=>'شرکت','personal'=>'شخصی','custom'=>'سفارشی'] as $k=>$v): ?><option value="<?=$k?>" <?=$settings['business_type']===$k?'selected':''?>><?=$v?></option><?php endforeach; ?></select><input name="currency" value="<?=h($settings['currency'])?>" placeholder="واحد پول"><input name="company_address" value="<?=h($settings['company_address'] ?? '')?>" placeholder="نشانی شرکت"><input name="phone" type="tel" value="<?=h($settings['phone'] ?? '')?>" placeholder="تلفن تماس"><input name="email" type="email" value="<?=h($settings['email'] ?? '')?>" placeholder="ایمیل شرکت"><input name="header_text" value="<?=h($settings['header_text'] ?? '')?>" placeholder="متن دلخواه سربرگ / شناسه ملی"><label class="upload-label">آرم یا لوگوی شرکت (JPG/PNG/WEBP، حداکثر ۲ مگابایت)<input type="file" name="company_logo" accept="image/jpeg,image/png,image/webp"></label><?php if(!empty($settings['logo_path'])): ?><p>آرم فعلی: <img class="company-logo-preview" src="<?=h($settings['logo_path'])?>" alt="آرم شرکت"></p><?php endif; ?><button>ذخیره مشخصات شرکت</button></form></section>
 <section id="crm"><h2>CRM مشتریان</h2>
 <form method="post"><input type="hidden" name="csrf" value="<?=h($_SESSION['csrf'])?>"><input type="hidden" name="action" value="customer">
@@ -255,4 +279,4 @@ $balances=$pdo->query('SELECT a.code,a.title,a.type,COALESCE(SUM(l.debit),0) deb
 </script></section>
 <section id="balances"><h2>تراز آزمایشی ساده</h2><p class="no-print"><a class="button-link" href="index.php?route=print&amp;report=trial">چاپ تراز آزمایشی</a> <a class="button-link" href="index.php?route=print&amp;report=trial&amp;format=csv">خروجی اکسل تراز آزمایشی</a></p><table><tr><th>کد</th><th>حساب</th><th>بدهکار</th><th>بستانکار</th></tr><?php foreach($balances as $b): ?><tr><td><?=h($b['code'])?></td><td><?=h($b['title'])?></td><td><?=number_format((float)$b['debit'],2)?></td><td><?=number_format((float)$b['credit'],2)?></td></tr><?php endforeach; ?></table></section>
 <section id="journal"><h2>دفتر روزنامه (اسناد خودکار)</h2><p class="no-print"><a class="button-link" href="index.php?route=print&amp;report=journal">چاپ دفتر روزنامه</a> <a class="button-link" href="index.php?route=print&amp;report=journal&amp;format=csv">خروجی اکسل دفتر روزنامه</a></p><table><tr><th>شماره سند</th><th>تاریخ</th><th>شرح</th><th>حساب</th><th>بدهکار</th><th>بستانکار</th></tr><?php foreach($entries as $e): ?><tr><td><?=h($e['id'])?></td><td><?=h($e['entry_date'])?></td><td><?=h($e['description'])?></td><td><?=h($e['title'])?></td><td><?=number_format((float)$e['debit'],2)?></td><td><?=number_format((float)$e['credit'],2)?></td></tr><?php endforeach; ?></table></section>
-</main><script src="assets/js/shortcuts.js"></script><script src="assets/js/appearance-settings.js" defer></script><script src="assets/js/page-effects.js" defer></script></body></html>
+</main><script src="assets/js/page-navigation.js" defer></script><script src="assets/js/shortcuts.js"></script><script src="assets/js/appearance-settings.js" defer></script><script src="assets/js/page-effects.js" defer></script></body></html>
