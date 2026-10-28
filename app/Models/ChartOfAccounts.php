@@ -18,13 +18,13 @@ function ensureChartOfAccounts(PDO $pdo): void {
 
     // Existing account IDs are retained; only missing parent levels are created.
     $groups = [
-        'asset' => ['1','دارایی‌ها'],
-        'liability' => ['2','بدهی‌ها'],
-        'equity' => ['3','حقوق مالکانه'],
-        'income' => ['4','درآمدها'],
-        'expense' => ['5','هزینه‌ها']
+        'asset' => ['1','دارایی‌ها','دارایی‌های جاری','موجودی نقد و بانک'],
+        'liability' => ['2','بدهی‌ها','بدهی‌های جاری','حساب‌های پرداختنی'],
+        'equity' => ['3','حقوق مالکانه','حقوق مالکانه','سرمایه'],
+        'income' => ['4','درآمدها','درآمدهای عملیاتی','فروش کالا'],
+        'expense' => ['5','هزینه‌ها','بهای تمام‌شده و هزینه‌های عملیاتی','خرید کالا']
     ];
-    foreach ($groups as $type => [$groupCode, $groupTitle]) {
+    foreach ($groups as $type => [$groupCode, $groupTitle, $generalTitle, $subsidiaryTitle]) {
         $generalCode = $groupCode . '0';
         $subsidiaryCode = $groupCode . '00';
         $q = $pdo->prepare('INSERT INTO accounts (code,title,type,parent_id,level,is_postable,is_active) VALUES (?,?,?,NULL,\'group\',0,1) ON DUPLICATE KEY UPDATE title=VALUES(title)');
@@ -33,12 +33,12 @@ function ensureChartOfAccounts(PDO $pdo): void {
         $q->execute([$groupCode]); $groupId = (int)$q->fetchColumn();
 
         $q = $pdo->prepare('INSERT INTO accounts (code,title,type,parent_id,level,is_postable,is_active) VALUES (?,?,?, ?,\'general\',0,1) ON DUPLICATE KEY UPDATE title=VALUES(title), parent_id=VALUES(parent_id)');
-        $q->execute([$generalCode,'سایر حساب‌های '.$groupTitle,$type,$groupId]);
+        $q->execute([$generalCode,$generalTitle,$type,$groupId]);
         $q = $pdo->prepare('SELECT id FROM accounts WHERE code=?');
         $q->execute([$generalCode]); $generalId = (int)$q->fetchColumn();
 
         $q = $pdo->prepare('INSERT INTO accounts (code,title,type,parent_id,level,is_postable,is_active) VALUES (?,?,?, ?,\'subsidiary\',0,1) ON DUPLICATE KEY UPDATE title=VALUES(title), parent_id=VALUES(parent_id)');
-        $q->execute([$subsidiaryCode,'سایر حساب‌های معین '.$groupTitle,$type,$generalId]);
+        $q->execute([$subsidiaryCode,$subsidiaryTitle,$type,$generalId]);
         $q = $pdo->prepare('SELECT id FROM accounts WHERE code=?');
         $q->execute([$subsidiaryCode]); $subsidiaryId = (int)$q->fetchColumn();
 
