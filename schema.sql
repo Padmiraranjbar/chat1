@@ -5,7 +5,12 @@ CREATE TABLE IF NOT EXISTS settings (
   id INT PRIMARY KEY AUTO_INCREMENT,
   business_name VARCHAR(190) NOT NULL DEFAULT 'کسب‌وکار من',
   business_type ENUM('store','company','personal','custom') NOT NULL DEFAULT 'store',
-  currency VARCHAR(20) NOT NULL DEFAULT 'تومان'
+  currency VARCHAR(20) NOT NULL DEFAULT 'تومان',
+  company_address VARCHAR(255) NOT NULL DEFAULT '',
+  phone VARCHAR(60) NOT NULL DEFAULT '',
+  email VARCHAR(190) NOT NULL DEFAULT '',
+  logo_path VARCHAR(255) NOT NULL DEFAULT '',
+  header_text VARCHAR(255) NOT NULL DEFAULT ''
 ) ENGINE=InnoDB;
 
 INSERT INTO settings (id,business_name,business_type,currency)
