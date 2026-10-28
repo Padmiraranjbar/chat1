@@ -18,10 +18,17 @@ SELECT 1,'کسب‌وکار من','store','تومان'
 WHERE NOT EXISTS (SELECT 1 FROM settings WHERE id=1);
 
 CREATE TABLE IF NOT EXISTS accounts (
-  id INT PRIMARY KEY,
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(20) NOT NULL UNIQUE,
   title VARCHAR(120) NOT NULL,
-  type ENUM('asset','liability','equity','income','expense') NOT NULL
+  type ENUM('asset','liability','equity','income','expense') NOT NULL,
+  parent_id INT NULL,
+  level ENUM('group','general','subsidiary','detail') NOT NULL DEFAULT 'detail',
+  is_postable TINYINT(1) NOT NULL DEFAULT 1,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  INDEX idx_accounts_parent (parent_id),
+  INDEX idx_accounts_level (level),
+  INDEX idx_accounts_active (is_active)
 ) ENGINE=InnoDB;
 
 INSERT IGNORE INTO accounts (id,code,title,type) VALUES
