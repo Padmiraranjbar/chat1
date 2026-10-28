@@ -3,6 +3,8 @@ declare(strict_types=1);
 $configFile = dirname(__DIR__) . '/config.php';
 if (!is_file($configFile)) { http_response_code(500); exit('ابتدا config.example.php را به config.php کپی و تنظیم کنید.'); }
 $c = require $configFile;
+if (empty($_SESSION['chart_admin'])) { header('Location: index.php?route=accounts'); exit; }
+header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: same-origin'); header('Cache-Control: no-store, private');
 $pdo = new PDO("mysql:host={$c['host']};dbname={$c['database']};charset=utf8mb4", $c['username'], $c['password'], [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
 ]);
