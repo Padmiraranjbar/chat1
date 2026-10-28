@@ -6,7 +6,7 @@ $c = require $configFile;
 $adminHash = (string)($c['admin_password_hash'] ?? '');
 if (strlen($adminHash) < 50) {
     http_response_code(503);
-    echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>راه‌اندازی دسترسی مدیر</title><body style="font-family:tahoma;max-width:760px;margin:40px auto;padding:20px"><h2>راه‌اندازی دسترسی مدیر</h2><p>برای جلوگیری از دسترسی عمومی به کدینگ حساب‌ها، ابتدا مقدار <code>admin_password_hash</code> را در فایل محرمانه <code>config.php</code> تنظیم کنید.</p><p>یک هش امن بسازید: <code>php -r "echo password_hash('''رمز-قوی-خودت''', PASSWORD_DEFAULT), PHP_EOL;"</code></p><p>هش خروجی را در تنظیمات قرار دهید. خود رمز را در GitHub قرار ندهید.</p><p><a href="index.php">بازگشت</a></p></body></html>';
+    echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>راه‌اندازی دسترسی مدیر</title><body style="font-family:tahoma;max-width:760px;margin:40px auto;padding:20px"><h2>راه‌اندازی دسترسی مدیر</h2><p>برای جلوگیری از دسترسی عمومی به کدینگ حساب‌ها، ابتدا مقدار <code>admin_password_hash</code> را در فایل محرمانه <code>config.php</code> تنظیم کنید.</p><p>در PHP از تابع <code>password_hash($password, PASSWORD_DEFAULT)</code> برای ساخت هش رمز مدیر استفاده کنید؛ فقط هش را در فایل تنظیمات قرار دهید.</p><p>هش خروجی را در تنظیمات قرار دهید. خود رمز را در GitHub قرار ندهید.</p><p><a href="index.php">بازگشت</a></p></body></html>';
     exit;
 }
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
@@ -66,9 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'login
             if ($id > 0) {
                 $q=$pdo->prepare('SELECT * FROM accounts WHERE id=?'); $q->execute([$id]); $old=$q->fetch();
                 if (!$old) throw new RuntimeException('حساب پیدا نشد.');
-                if ((int)$old['is_postable'] && $pdo->prepare('SELECT 1 FROM journal_lines WHERE account_id=? LIMIT 1')->execute([$id])) {
-                    // Existing accounts can be renamed/re-coded without changing their identity or linked journal lines.
-                }
+                $q=$pdo->prepare('SELECT COUNT(*) FROM journal_lines WHERE account_id=?'); $q->execute([$id]); $hasJournal=(int)$q->fetchColumn()>0;
+                if ($hasJournal && ($level !== $old['level'] || $type !== $old['type'] || $level !== 'detail')) throw new RuntimeException('حساب دارای سند را نمی‌توان به سطح یا ماهیت دیگری منتقل کرد.');
                 $q=$pdo->prepare('SELECT COUNT(*) FROM accounts WHERE parent_id=?'); $q->execute([$id]); $hasChildren=(int)$q->fetchColumn()>0;
                 if ($hasChildren && $level==='detail') throw new RuntimeException('حسابی که زیرحساب دارد نمی‌تواند تفصیلی شود.');
                 $parentId = $parentId ?: 0;
@@ -98,6 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'login
             }
         } elseif ($action === 'delete') {
             $id=(int)($_POST['id'] ?? 0);
+            if ($id >= 1 && $id <= 5) throw new RuntimeException('حساب‌های پایه سیستم قابل حذف نیستند؛ این حساب‌ها برای ثبت خودکار خرید و فروش استفاده می‌شوند.');
             $q=$pdo->prepare('SELECT COUNT(*) FROM accounts WHERE parent_id=?'); $q->execute([$id]);
             if ((int)$q->fetchColumn()>0) throw new RuntimeException('این حساب زیرحساب دارد؛ ابتدا حساب‌های زیرمجموعه را منتقل یا غیرفعال کنید.');
             $q=$pdo->prepare('SELECT COUNT(*) FROM journal_lines WHERE account_id=?'); $q->execute([$id]);
@@ -106,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'login
             $msg='حساب حذف شد.';
         } elseif ($action === 'toggle') {
             $id=(int)($_POST['id'] ?? 0);
+            if ($id >= 1 && $id <= 5) throw new RuntimeException('حساب‌های پایه سیستم را نمی‌توان غیرفعال کرد.');
             $q=$pdo->prepare('SELECT is_active FROM accounts WHERE id=?'); $q->execute([$id]); $current=$q->fetchColumn();
             if ($current===false) throw new RuntimeException('حساب پیدا نشد.');
             $q=$pdo->prepare('UPDATE accounts SET is_active=? WHERE id=?'); $q->execute([(int)!((int)$current),$id]);
