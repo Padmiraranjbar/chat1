@@ -32,12 +32,12 @@ function ensureChartOfAccounts(PDO $pdo): void {
         $q = $pdo->prepare('SELECT id FROM accounts WHERE code=?');
         $q->execute([$groupCode]); $groupId = (int)$q->fetchColumn();
 
-        $q = $pdo->prepare('INSERT INTO accounts (code,title,type,parent_id,level,is_postable,is_active) VALUES (?,?,?, ?,\'general\',0,1) ON DUPLICATE KEY UPDATE parent_id=VALUES(parent_id), level=VALUES(level), is_postable=VALUES(is_postable)');
+        $q = $pdo->prepare('INSERT INTO accounts (code,title,type,parent_id,level,is_postable,is_active) VALUES (?,?,?, ?,\'general\',0,1) ON DUPLICATE KEY UPDATE id=id');
         $q->execute([$generalCode,$generalTitle,$type,$groupId]);
         $q = $pdo->prepare('SELECT id FROM accounts WHERE code=?');
         $q->execute([$generalCode]); $generalId = (int)$q->fetchColumn();
 
-        $q = $pdo->prepare('INSERT INTO accounts (code,title,type,parent_id,level,is_postable,is_active) VALUES (?,?,?, ?,\'subsidiary\',0,1) ON DUPLICATE KEY UPDATE title=VALUES(title), parent_id=VALUES(parent_id)');
+        $q = $pdo->prepare('INSERT INTO accounts (code,title,type,parent_id,level,is_postable,is_active) VALUES (?,?,?, ?,\'subsidiary\',0,1) ON DUPLICATE KEY UPDATE id=id');
         $q->execute([$subsidiaryCode,$subsidiaryTitle,$type,$generalId]);
         $q = $pdo->prepare('SELECT id FROM accounts WHERE code=?');
         $q->execute([$subsidiaryCode]); $subsidiaryId = (int)$q->fetchColumn();
