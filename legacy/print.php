@@ -10,6 +10,13 @@ $db=new PDO("mysql:host={$c['host']};dbname={$c['database']};charset=utf8mb4",$c
 ]);
 $db->exec("CREATE TABLE IF NOT EXISTS payment_documents (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, document_type ENUM('receivable','payable') NOT NULL, cheque_number VARCHAR(100) NOT NULL DEFAULT '', due_date DATE NOT NULL, party_name VARCHAR(190) NOT NULL DEFAULT '', bank_name VARCHAR(190) NOT NULL DEFAULT '', amount DECIMAL(15,2) NOT NULL, status ENUM('pending','deposited','paid','returned','cancelled') NOT NULL DEFAULT 'pending', notes VARCHAR(500) NOT NULL DEFAULT '', created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_payment_due_status (due_date,status), INDEX idx_payment_cheque (cheque_number)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $db->exec("CREATE TABLE IF NOT EXISTS bank_statement_lines (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, statement_date DATE NOT NULL, description VARCHAR(255) NOT NULL DEFAULT '', reference_no VARCHAR(100) NOT NULL DEFAULT '', amount DECIMAL(15,2) NOT NULL, match_status ENUM('unmatched','matched') NOT NULL DEFAULT 'unmatched', matched_journal_line_id BIGINT UNSIGNED NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX idx_bank_date_amount (statement_date,amount), INDEX idx_bank_match (match_status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$db->exec("CREATE TABLE IF NOT EXISTS customers (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, full_name VARCHAR(190) NOT NULL, phone VARCHAR(60) NOT NULL DEFAULT '', address VARCHAR(500) NOT NULL DEFAULT '', email VARCHAR(190) NOT NULL DEFAULT '', notes TEXT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_customers_name (full_name), INDEX idx_customers_phone (phone)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$db->exec("CREATE TABLE IF NOT EXISTS product_price_history (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, product_id BIGINT UNSIGNED NOT NULL, old_price DECIMAL(15,2) NOT NULL, new_price DECIMAL(15,2) NOT NULL, changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, reason VARCHAR(255) NOT NULL DEFAULT 'تغییر قیمت هنگام فروش', INDEX idx_price_product_date (product_id,changed_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$txnCols=[];foreach($db->query('SHOW COLUMNS FROM transactions')->fetchAll() as $col)$txnCols[$col['Field']]=true;
+if(!isset($txnCols['discount_percent']))$db->exec('ALTER TABLE transactions ADD COLUMN discount_percent DECIMAL(7,3) NOT NULL DEFAULT 0');
+if(!isset($txnCols['discount_total']))$db->exec('ALTER TABLE transactions ADD COLUMN discount_total DECIMAL(15,2) NOT NULL DEFAULT 0');
+if(!isset($txnCols['customer_id']))$db->exec('ALTER TABLE transactions ADD COLUMN customer_id BIGINT UNSIGNED NULL, ADD INDEX idx_transactions_customer_date (customer_id,txn_date)');
+
 
 require dirname(__DIR__) . '/app/Models/ChartOfAccounts.php';
 ensureChartOfAccounts($db);
@@ -29,12 +36,21 @@ if($report==='daily'){
 }elseif($report==='bank-reconciliation'){
  $title='گزارش مغایرت‌گیری بانکی';
  $q=$db->prepare("SELECT b.id,b.statement_date,b.description,b.reference_no,b.amount,b.match_status,(SELECT MIN(l.id) FROM journal_lines l JOIN journal_entries e ON e.id=l.entry_id JOIN accounts a ON a.id=l.account_id WHERE e.entry_date=b.statement_date AND ROUND(l.debit-l.credit,2)=ROUND(b.amount,2) AND (a.title LIKE '%بانک%' OR a.title LIKE '%صندوق%' OR a.title LIKE '%bank%' OR a.title LIKE '%cash%') AND NOT EXISTS (SELECT 1 FROM bank_statement_lines b2 WHERE b2.matched_journal_line_id=l.id AND b2.id<>b.id)) candidate_line_id FROM bank_statement_lines b WHERE b.statement_date BETWEEN ? AND ? ORDER BY b.statement_date,b.id");$q->execute([$from,$to]);$rows=$q->fetchAll();
+}elseif($report==='customer-sales'){
+ $title='گزارش فروش بر اساس مشتری و کالا';
+ $customerFilter=(int)($_GET['customer_id']??0);$productFilter=(int)($_GET['product_id']??0);
+ $sql="SELECT t.id,t.txn_date,c.full_name customer_name,c.phone,c.address,p.name product,t.quantity,t.unit_price,t.discount_percent,t.discount_total,t.total,t.party_name FROM transactions t JOIN products p ON p.id=t.product_id LEFT JOIN customers c ON c.id=t.customer_id WHERE t.txn_type='sale' AND t.txn_date BETWEEN ? AND ?";
+ $args=[$from,$to];if($customerFilter>0){$sql.=" AND t.customer_id=?";$args[]=$customerFilter;}if($productFilter>0){$sql.=" AND t.product_id=?";$args[]=$productFilter;}
+ $sql.=" ORDER BY c.full_name,p.name,t.txn_date,t.id";$q=$db->prepare($sql);$q->execute($args);$rows=$q->fetchAll();
+}elseif($report==='price-history'){
+ $title='تاریخچه تغییر قیمت کالا';
+ $q=$db->prepare('SELECT h.id,h.changed_at,p.name product,h.old_price,h.new_price,h.reason FROM product_price_history h JOIN products p ON p.id=h.product_id WHERE DATE(h.changed_at) BETWEEN ? AND ? ORDER BY h.changed_at DESC,h.id DESC');$q->execute([$from,$to]);$rows=$q->fetchAll();
 }elseif($report==='trial'){
  $title='تراز آزمایشی';
  $q=$db->prepare('SELECT a.code,a.title,COALESCE(SUM(CASE WHEN e.id IS NOT NULL THEN l.debit ELSE 0 END),0) debit,COALESCE(SUM(CASE WHEN e.id IS NOT NULL THEN l.credit ELSE 0 END),0) credit FROM accounts a LEFT JOIN journal_lines l ON l.account_id=a.id LEFT JOIN journal_entries e ON e.id=l.entry_id AND e.entry_date BETWEEN ? AND ? WHERE a.is_postable=1 GROUP BY a.id ORDER BY a.code');$q->execute([$from,$to]);$rows=$q->fetchAll();
 }elseif($report==='transactions'){
  $title='گزارش خرید و فروش';
- $q=$db->prepare('SELECT t.id,t.txn_date,t.txn_type,p.name product,t.quantity,t.unit_price,t.total,t.payment_method,t.party_name FROM transactions t JOIN products p ON p.id=t.product_id WHERE t.txn_date BETWEEN ? AND ? ORDER BY t.txn_date,t.id');$q->execute([$from,$to]);$rows=$q->fetchAll();
+ $q=$db->prepare('SELECT t.id,t.txn_date,t.txn_type,p.name product,t.quantity,t.unit_price,t.discount_percent,t.discount_total,t.total,t.payment_method,t.party_name,c.phone customer_phone FROM transactions t JOIN products p ON p.id=t.product_id LEFT JOIN customers c ON c.id=t.customer_id WHERE t.txn_date BETWEEN ? AND ? ORDER BY t.txn_date,t.id');$q->execute([$from,$to]);$rows=$q->fetchAll();
 }else{
  $q=$db->prepare('SELECT e.id,e.entry_date,e.description,e.source_type,a.code,a.title,l.debit,l.credit FROM journal_entries e JOIN journal_lines l ON l.entry_id=e.id JOIN accounts a ON a.id=l.account_id WHERE e.entry_date BETWEEN ? AND ? ORDER BY e.entry_date,e.id,l.id');$q->execute([$from,$to]);$rows=$q->fetchAll();
 }
@@ -49,7 +65,9 @@ if(($_GET['format']??'')==='csv'){
  elseif($report==='bank-reconciliation'){fputcsv($out,['شناسه','تاریخ بانک','شرح','شماره مرجع','مبلغ بانک','وضعیت ثبت','ردیف پیشنهادی دفتر']);foreach($rows as $x)fputcsv($out,array_map($safe,[$x['id'],$x['statement_date'],$x['description'],$x['reference_no'],$x['amount'],$x['match_status']==='matched'?'تطبیق خودکار پیشنهادی':($x['candidate_line_id']?'دارای تطبیق احتمالی':'بدون تطبیق'),$x['candidate_line_id']??'']));}
  elseif($report==='daily'){fputcsv($out,['تاریخ','جمع خرید','جمع فروش','بهای تمام‌شده فروش','سود ناخالص','تعداد عملیات']);foreach($rows as $x)fputcsv($out,array_map($safe,[$x['txn_date'],$x['purchase_amount'],$x['sale_amount'],$x['cost_amount'],$x['gross_profit'],$x['record_count']]));}
  elseif($report==='trial'){fputcsv($out,['کد حساب','نام حساب','بدهکار','بستانکار']);foreach($rows as $x)fputcsv($out,array_map($safe,[$x['code'],$x['title'],$x['debit'],$x['credit']]));}
- elseif($report==='transactions'){fputcsv($out,['شماره','تاریخ','نوع','کالا','تعداد','قیمت واحد','مبلغ','پرداخت','طرف حساب']);foreach($rows as $x)fputcsv($out,array_map($safe,[$x['id'],$x['txn_date'],$x['txn_type']==='sale'?'فروش':'خرید',$x['product'],$x['quantity'],$x['unit_price'],$x['total'],$x['payment_method']==='cash'?'نقدی':'نسیه',$x['party_name']]));}
+ elseif($report==='transactions'){fputcsv($out,['شماره','تاریخ','نوع','کالا','تعداد','قیمت واحد','درصد تخفیف','مبلغ تخفیف','مبلغ نهایی','پرداخت','طرف حساب','تلفن مشتری']);foreach($rows as $x)fputcsv($out,array_map($safe,[$x['id'],$x['txn_date'],$x['txn_type']==='sale'?'فروش':'خرید',$x['product'],$x['quantity'],$x['unit_price'],$x['discount_percent'],$x['discount_total'],$x['total'],$x['payment_method']==='cash'?'نقدی':'نسیه',$x['party_name'],$x['customer_phone']]));}
+ elseif($report==='customer-sales'){fputcsv($out,['شماره','تاریخ','مشتری','تلفن','نشانی','کالا','تعداد','قیمت واحد','درصد تخفیف','مبلغ تخفیف','مبلغ نهایی']);foreach($rows as $x)fputcsv($out,array_map($safe,[$x['id'],$x['txn_date'],$x['customer_name']?:$x['party_name'],$x['phone']??'',$x['address']??'',$x['product'],$x['quantity'],$x['unit_price'],$x['discount_percent'],$x['discount_total'],$x['total']]));}
+ elseif($report==='price-history'){fputcsv($out,['شناسه','زمان تغییر','کالا','قیمت قبل','قیمت جدید','علت']);foreach($rows as $x)fputcsv($out,array_map($safe,[$x['id'],$x['changed_at'],$x['product'],$x['old_price'],$x['new_price'],$x['reason']]));}
  else{fputcsv($out,['شماره سند','تاریخ','شرح','کد حساب','حساب','بدهکار','بستانکار']);foreach($rows as $x)fputcsv($out,array_map($safe,[$x['id'],$x['entry_date'],$x['description'],$x['code'],$x['title'],$x['debit'],$x['credit']]));}
  fclose($out);exit;
 }
