@@ -84,7 +84,7 @@ $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
 $products=$pdo->query('SELECT * FROM products ORDER BY name')->fetchAll();
 $settings=$pdo->query('SELECT * FROM settings WHERE id=1')->fetch() ?: ['business_name'=>'کسب‌وکار من','business_type'=>'store','currency'=>'تومان','company_address'=>'','phone'=>'','email'=>'','logo_path'=>'','header_text'=>''];
 $entries=$pdo->query('SELECT e.id,e.entry_date,e.description,a.title,l.debit,l.credit FROM journal_entries e JOIN journal_lines l ON l.entry_id=e.id JOIN accounts a ON a.id=l.account_id ORDER BY e.id DESC,l.id')->fetchAll();
-$balances=$pdo->query('SELECT a.code,a.title,a.type,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounts a LEFT JOIN journal_lines l ON l.account_id=a.id WHERE a.is_postable=1 AND a.is_active=1 GROUP BY a.id ORDER BY a.code')->fetchAll();
+$balances=$pdo->query('SELECT a.code,a.title,a.type,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounts a LEFT JOIN journal_lines l ON l.account_id=a.id WHERE a.is_postable=1 GROUP BY a.id ORDER BY a.code')->fetchAll();
 ?>
 <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>حسابداری هوشمند</title>
 <link rel="stylesheet" href="assets/css/app.css"></head><body><main>
