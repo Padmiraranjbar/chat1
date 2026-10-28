@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'login
             $level = (string)($_POST['level'] ?? '');
             $type = (string)($_POST['type'] ?? '');
             $parentId = (int)($_POST['parent_id'] ?? 0);
-            if ($code === '' || !preg_match('/^[0-9A-Za-z._-]{1,20}$/', $code) || $title === '') throw new RuntimeException('کد و عنوان معتبر وارد کنید.');
+            if ($code === '' || !preg_match('/^[0-9]{1,20}$/', $code) || $title === '') throw new RuntimeException('کد و عنوان معتبر وارد کنید.');
             if (!isset($levels[$level], $types[$type])) throw new RuntimeException('سطح یا ماهیت حساب معتبر نیست.');
             if ($id > 0) {
                 $q=$pdo->prepare('SELECT * FROM accounts WHERE id=?'); $q->execute([$id]); $old=$q->fetch();
