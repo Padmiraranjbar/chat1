@@ -30,6 +30,7 @@ foreach ($companyColumns as $column => $definition) {
  if (!isset($existingColumns[$column])) $pdo->exec("ALTER TABLE settings ADD COLUMN `" . $column . "` " . $definition);
 }
 $msg='';
+$isSuccess=false;
 if ($_SERVER['REQUEST_METHOD']==='POST') {
     try {
         if (!hash_equals($_SESSION['csrf'] ?? '', $_POST['csrf'] ?? '')) throw new RuntimeException('درخواست نامعتبر است؛ صفحه را تازه کنید.');
@@ -37,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         if ($action==='product') {
             $q=$pdo->prepare('INSERT INTO products(name,sku,stock,purchase_price,sale_price) VALUES(?,?,?,?,?)');
             $q->execute([trim($_POST['name']),trim($_POST['sku']) ?: null,0,(float)$_POST['purchase_price'],(float)$_POST['sale_price']]);
-            $msg='کالا ثبت شد.';
+            $msg='ثبت شد'; $isSuccess=true;
         } elseif (in_array($action,['purchase','sale'],true)) {
             $pid=(int)$_POST['product_id']; $qty=(float)$_POST['quantity']; $price=(float)$_POST['unit_price'];
             $date=$_POST['txn_date']; $method=$_POST['payment_method']==='credit'?'credit':'cash';
@@ -55,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             $q->execute([$delta,0,$pid]);
             if ($action==='purchase') postJournal($pdo,$type,$tid,$date,'خرید کالا: '.$p['name'],$method==='cash'?5:5,$method==='cash'?1:2,$total);
             else postJournal($pdo,$type,$tid,$date,'فروش کالا: '.$p['name'],$method==='cash'?1:2,4,$total);
-            $pdo->commit(); $msg='عملیات ثبت شد و سند حسابداری به‌صورت خودکار ایجاد شد.';
+            $pdo->commit(); $msg='ثبت شد؛ سند حسابداری هم به‌صورت خودکار ایجاد شد.'; $isSuccess=true;
         } elseif ($action==='settings') {
             $logoPath = '';
             $oldSettings=$pdo->query('SELECT logo_path FROM settings WHERE id=1')->fetch() ?: [];
@@ -76,9 +77,9 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             }
             $q=$pdo->prepare('UPDATE settings SET business_name=?,business_type=?,currency=?,company_address=?,phone=?,email=?,logo_path=?,header_text=? WHERE id=1');
             $q->execute([trim($_POST['business_name']),$_POST['business_type'],trim($_POST['currency']),trim($_POST['company_address'] ?? ''),trim($_POST['phone'] ?? ''),trim($_POST['email'] ?? ''),$logoPath,trim($_POST['header_text'] ?? '')]);
-            $msg='تنظیمات کسب‌وکار ذخیره شد.';
+            $msg='ثبت شد؛ تنظیمات ذخیره شد.'; $isSuccess=true;
         }
-    } catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); error_log('Accounting application error: '.$e->getMessage()); $msg='عملیات انجام نشد. لطفاً اطلاعات را بررسی کنید و دوباره تلاش کنید.'; }
+    } catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); error_log('Accounting application error: '.$e->getMessage()); $msg='عملیات انجام نشد. لطفاً اطلاعات را بررسی کنید و دوباره تلاش کنید.'; $isSuccess=false; }
 }
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
 $products=$pdo->query('SELECT * FROM products ORDER BY name')->fetchAll();
@@ -88,7 +89,8 @@ $balances=$pdo->query('SELECT a.code,a.title,a.type,COALESCE(SUM(l.debit),0) deb
 ?>
 <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>حسابداری هوشمند</title>
 <link rel="stylesheet" href="assets/css/app.css"></head><body><main>
-<header class="app-header"><div><h1>حسابداری هوشمند</h1><p>دسترسی سریع به بخش‌های اصلی</p></div><span class="keyboard-hint">F2 کالا | F3 خرید | F4 فروش</span></header><?php if($msg): ?><p class="msg"><?=h($msg)?></p><?php endif; ?><nav class="dashboard-nav" aria-label="منوی سریع"><a class="nav-card" href="#product"><span class="nav-icon">[ک]</span><strong>تعریف کالا</strong><small>F2</small></a><a class="nav-card" href="#purchase"><span class="nav-icon">[خ]</span><strong>خرید کالا</strong><small>F3</small></a><a class="nav-card sale-card" href="#sale"><span class="nav-icon">[ف]</span><strong>فروش کالا</strong><small>F4</small></a><a class="nav-card" href="index.php?route=accounts"><strong>کدینگ حساب‌ها</strong><small>گروه، کل، معین، تفصیلی</small></a><a class="nav-card" href="#settings"><strong>تنظیمات شرکت</strong><small>آرم و تلفن</small></a><a class="nav-card" href="#journal"><strong>دفتر روزنامه</strong></a><a class="nav-card" href="#balances"><strong>تراز آزمایشی</strong></a><a class="nav-card" href="index.php?route=fiscal-years"><strong>سال مالی</strong></a><a class="nav-card" href="index.php?route=print"><strong>گزارش چاپی</strong></a></nav>
+<header class="app-header"><div><h1>حسابداری هوشمند</h1><p>دسترسی سریع به بخش‌های اصلی</p></div><span class="keyboard-hint">F2 کالا | F3 خرید | F4 فروش</span></header><?php if($msg && !$isSuccess): ?><p class="msg error-msg"><?=h($msg)?></p><?php endif; ?>
+<?php if($isSuccess): ?><dialog id="result-dialog" class="result-dialog" open aria-labelledby="result-title"><div class="dialog-mark" aria-hidden="true">✓</div><h2 id="result-title">ثبت شد</h2><p><?=h($msg)?></p><button type="button" id="close-result-dialog" autofocus>متوجه شدم</button></dialog><div class="dialog-backdrop"></div><script>document.body.classList.add('dialog-visible');document.getElementById('close-result-dialog').addEventListener('click',function(){document.getElementById('result-dialog').close();document.querySelector('.dialog-backdrop').remove();document.body.classList.remove('dialog-visible')});</script><?php endif; ?><nav class="dashboard-nav" aria-label="منوی سریع"><a class="nav-card" href="#product"><span class="nav-icon">[ک]</span><strong>تعریف کالا</strong><small>F2</small></a><a class="nav-card" href="#purchase"><span class="nav-icon">[خ]</span><strong>خرید کالا</strong><small>F3</small></a><a class="nav-card sale-card" href="#sale"><span class="nav-icon">[ف]</span><strong>فروش کالا</strong><small>F4</small></a><a class="nav-card" href="index.php?route=accounts"><strong>کدینگ حساب‌ها</strong><small>گروه، کل، معین، تفصیلی</small></a><a class="nav-card" href="#settings"><strong>تنظیمات شرکت</strong><small>آرم و تلفن</small></a><a class="nav-card" href="#journal"><strong>دفتر روزنامه</strong></a><a class="nav-card" href="#balances"><strong>تراز آزمایشی</strong></a><a class="nav-card" href="index.php?route=fiscal-years"><strong>سال مالی</strong></a><a class="nav-card" href="index.php?route=print"><strong>گزارش چاپی</strong></a></nav>
 <section id="settings"><h2>تنظیمات شرکت و سربرگ</h2><form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=h($_SESSION['csrf'])?>"><input type="hidden" name="action" value="settings"><input name="business_name" value="<?=h($settings['business_name'])?>" placeholder="نام کسب‌وکار"><select name="business_type"><?php foreach(['store'=>'فروشگاه','company'=>'شرکت','personal'=>'شخصی','custom'=>'سفارشی'] as $k=>$v): ?><option value="<?=$k?>" <?=$settings['business_type']===$k?'selected':''?>><?=$v?></option><?php endforeach; ?></select><input name="currency" value="<?=h($settings['currency'])?>" placeholder="واحد پول"><input name="company_address" value="<?=h($settings['company_address'] ?? '')?>" placeholder="نشانی شرکت"><input name="phone" type="tel" value="<?=h($settings['phone'] ?? '')?>" placeholder="تلفن تماس"><input name="email" type="email" value="<?=h($settings['email'] ?? '')?>" placeholder="ایمیل شرکت"><input name="header_text" value="<?=h($settings['header_text'] ?? '')?>" placeholder="متن دلخواه سربرگ / شناسه ملی"><label class="upload-label">آرم یا لوگوی شرکت (JPG/PNG/WEBP، حداکثر ۲ مگابایت)<input type="file" name="company_logo" accept="image/jpeg,image/png,image/webp"></label><?php if(!empty($settings['logo_path'])): ?><p>آرم فعلی: <img class="company-logo-preview" src="<?=h($settings['logo_path'])?>" alt="آرم شرکت"></p><?php endif; ?><button>ذخیره مشخصات شرکت</button></form></section>
 <section id="product"><h2>تعریف کالا</h2><form method="post"><input type="hidden" name="csrf" value="<?=h($_SESSION['csrf'])?>"><input type="hidden" name="action" value="product"><input name="name" required placeholder="نام کالا"><input name="sku" placeholder="کد کالا"><input type="number" step=".01" min="0" name="purchase_price" placeholder="قیمت خرید"><input type="number" step=".01" min="0" name="sale_price" placeholder="قیمت فروش"><button>ثبت کالا</button></form></section>
 <?php foreach(['purchase'=>'خرید کالا','sale'=>'فروش کالا'] as $act=>$label): ?><section id="<?=$act?>"><h2><?=$label?></h2><form method="post"><input type="hidden" name="csrf" value="<?=h($_SESSION['csrf'])?>"><input type="hidden" name="action" value="<?=$act?>"><input type="date" name="txn_date" required value="<?=date('Y-m-d')?>"><select name="product_id" required><option value="">انتخاب کالا</option><?php foreach($products as $p): ?><option value="<?=$p['id']?>"><?=h($p['name'])?> (موجودی: <?=h($p['stock'])?>)</option><?php endforeach; ?></select><input type="number" step=".001" min=".001" name="quantity" required placeholder="تعداد"><input type="number" step=".01" min=".01" name="unit_price" required placeholder="قیمت واحد"><select name="payment_method"><option value="cash">نقدی</option><option value="credit">نسیه</option></select><input name="party_name" placeholder="نام مشتری/تأمین‌کننده"><button>ثبت <?=$label?></button></form></section><?php endforeach; ?>
