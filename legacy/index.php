@@ -25,7 +25,7 @@ $companyColumns = [
 $existingColumns = [];
 foreach ($pdo->query('SHOW COLUMNS FROM settings')->fetchAll() as $column) $existingColumns[$column['Field']] = true;
 foreach ($companyColumns as $column => $definition) {
- if (!isset($existingColumns[$column])) $pdo->exec("ALTER TABLE settings ADD COLUMN " . $pdo->quote($column) . " " . $definition);
+ if (!isset($existingColumns[$column])) $pdo->exec("ALTER TABLE settings ADD COLUMN `" . $column . "` " . $definition);
 }
 $msg='';
 if ($_SERVER['REQUEST_METHOD']==='POST') {
