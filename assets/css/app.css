@@ -217,3 +217,23 @@ body:has(.module-dialog[open]){overflow:hidden}
  .module-dialog form button{grid-column:auto}
  .module-dialog-toolbar{align-items:flex-start}
 }
+
+/* Fail-safe page isolation: even if a script is delayed, dashboard never renders every module below the cards */
+body[data-current-page="dashboard"] main>section{display:none!important}
+body[data-current-page="product"] main>section#product,
+body[data-current-page="crm"] main>section#crm,
+body[data-current-page="settings"] main>section#settings,
+body[data-current-page="reports"] main>section#reports,
+body[data-current-page="balances"] main>section#balances,
+body[data-current-page="journal"] main>section#journal{display:block!important}
+body[data-current-page="sale"] main>section#sale,
+body[data-current-page="purchase"] main>section#purchase{display:none!important}
+body[data-current-page="sale"] .dashboard-nav,
+body[data-current-page="purchase"] .dashboard-nav,
+body[data-current-page="product"] .dashboard-nav,
+body[data-current-page="crm"] .dashboard-nav,
+body[data-current-page="settings"] .dashboard-nav,
+body[data-current-page="reports"] .dashboard-nav,
+body[data-current-page="balances"] .dashboard-nav,
+body[data-current-page="journal"] .dashboard-nav{display:none!important}
+body[data-current-page="dashboard"] .page-toolbar{display:none!important}
