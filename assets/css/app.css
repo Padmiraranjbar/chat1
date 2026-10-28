@@ -84,3 +84,16 @@ body.dialog-visible{overflow:hidden}
 .app-header .pwa-install-button{margin-inline-start:auto}
 @media(max-width:768px){.app-header .pwa-install-button{width:100%;margin:4px 0}}
 @media(display-mode:standalone){.pwa-install-button{display:none!important}}
+
+
+/* Fast product search in the sales form */
+.product-autocomplete{position:relative;flex:1 1 260px;min-width:220px;max-width:100%;margin:4px}
+.product-autocomplete .product-search{width:100%;margin:0}
+.product-search-hint{display:block;color:#667085;font-size:12px;padding:2px 4px}
+.product-suggestions{position:absolute;z-index:30;top:calc(100% + 2px);right:0;left:0;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 28px #0f172a20;max-height:260px;overflow-y:auto}
+.product-suggestions[hidden]{display:none}
+.product-suggestion{display:flex;width:100%;flex-direction:column;align-items:flex-start;gap:2px;margin:0;padding:10px 12px;border:0;border-radius:0;background:#fff;color:#202938;text-align:right;white-space:normal}
+.product-suggestion:hover,.product-suggestion:focus,.product-suggestion.active{background:#eaf1ff;color:#174ea6}
+.product-suggestion small,.product-suggestion-empty{color:#667085;font-size:12px}
+.product-suggestion-empty{padding:12px}
+@media(max-width:768px){.product-autocomplete{flex:1 1 100%;width:100%;margin:2px 0}}
