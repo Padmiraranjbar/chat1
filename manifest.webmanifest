@@ -1,0 +1,23 @@
+{
+  "id": "./",
+  "name": "حسابداری هوشمند",
+  "short_name": "حسابداری",
+  "description": "نرم‌افزار حسابداری و مدیریت کالا",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "./index.php",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f3f5f8",
+  "theme_color": "#174ea6",
+  "icons": [
+    {
+      "src": "./assets/images/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
