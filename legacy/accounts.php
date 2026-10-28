@@ -6,7 +6,7 @@ $c = require $configFile;
 $adminHash = (string)($c['admin_password_hash'] ?? '');
 if (strlen($adminHash) < 50) {
     http_response_code(503);
-    echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>راه‌اندازی دسترسی مدیر</title><body style="font-family:tahoma;max-width:760px;margin:40px auto;padding:20px"><h2>راه‌اندازی دسترسی مدیر</h2><p>برای جلوگیری از دسترسی عمومی به کدینگ حساب‌ها، ابتدا مقدار <code>admin_password_hash</code> را در فایل محرمانه <code>config.php</code> تنظیم کنید.</p><p>در PHP از تابع <code>password_hash($password, PASSWORD_DEFAULT)</code> برای ساخت هش رمز مدیر استفاده کنید؛ فقط هش را در فایل تنظیمات قرار دهید.</p><p>هش خروجی را در تنظیمات قرار دهید. خود رمز را در GitHub قرار ندهید.</p><p><a href="index.php">بازگشت</a></p></body></html>';
+    echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>راه‌اندازی دسترسی مدیر</title><body style="font-family:tahoma;max-width:760px;margin:40px auto;padding:20px"><h2>راه‌اندازی دسترسی مدیر</h2><p>برای جلوگیری از دسترسی عمومی به کدینگ حساب‌ها، ابتدا مقدار <code>admin_password_hash</code> را در فایل محرمانه <code>config.php</code> تنظیم کنید.</p><p>در PHP از تابع <code>password_hash($password, PASSWORD_DEFAULT)</code> برای ساخت هش رمز مدیر استفاده کنید؛ فقط هش را در فایل تنظیمات قرار دهید.</p><p>هش خروجی را در تنظیمات قرار دهید. خود رمز را در GitHub قرار ندهید.</p><p><a href="index.php">بازگشت</a></p><script src="assets/js/page-effects.js" defer></script></body></html>';
     exit;
 }
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
