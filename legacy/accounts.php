@@ -11,6 +11,7 @@ if (strlen($adminHash) < 50) {
 }
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
 $msg = '';
+$isSuccess = false;
 if (isset($_GET['logout'])) {
     $_SESSION['chart_admin'] = false;
     header('Location: index.php?route=accounts'); exit;
@@ -83,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'login
                 $postable = $level==='detail' ? 1 : 0;
                 $q=$pdo->prepare('UPDATE accounts SET code=?,title=?,type=?,parent_id=?,level=?,is_postable=? WHERE id=?');
                 $q->execute([$code,$title,$type,$parentId ?: null,$level,$postable,$id]);
-                $msg='حساب ویرایش شد.';
+                $msg='تغییرات حساب ذخیره شد.'; $isSuccess=true;
             } else {
                 $parentId = $parentId ?: 0;
                 if ($level==='group') {
@@ -95,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'login
                 }
                 $q=$pdo->prepare('INSERT INTO accounts(code,title,type,parent_id,level,is_postable,is_active) VALUES(?,?,?,?,?,?,1)');
                 $q->execute([$code,$title,$type,$parentId ?: null,$level,$level==='detail'?1:0]);
-                $msg='حساب جدید ایجاد شد.';
+                $msg='حساب جدید ثبت شد.'; $isSuccess=true;
             }
         } elseif ($action === 'delete') {
             $id=(int)($_POST['id'] ?? 0);
@@ -105,18 +106,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'login
             $q=$pdo->prepare('SELECT COUNT(*) FROM journal_lines WHERE account_id=?'); $q->execute([$id]);
             if ((int)$q->fetchColumn()>0) throw new RuntimeException('این حساب در سند حسابداری استفاده شده و حذف نمی‌شود. برای حفظ سوابق، آن را غیرفعال کنید.');
             $q=$pdo->prepare('DELETE FROM accounts WHERE id=?'); $q->execute([$id]);
-            $msg='حساب حذف شد.';
+            $msg='حساب حذف شد.'; $isSuccess=true;
         } elseif ($action === 'toggle') {
             $id=(int)($_POST['id'] ?? 0);
             if ($id >= 1 && $id <= 5) throw new RuntimeException('حساب‌های پایه سیستم را نمی‌توان غیرفعال کرد.');
             $q=$pdo->prepare('SELECT is_active FROM accounts WHERE id=?'); $q->execute([$id]); $current=$q->fetchColumn();
             if ($current===false) throw new RuntimeException('حساب پیدا نشد.');
             $q=$pdo->prepare('UPDATE accounts SET is_active=? WHERE id=?'); $q->execute([(int)!((int)$current),$id]);
-            $msg='وضعیت حساب تغییر کرد.';
+            $msg='وضعیت حساب تغییر کرد.'; $isSuccess=true;
         }
     } catch (Throwable $e) {
         error_log('Chart of accounts error: '.$e->getMessage());
-        $msg=$e instanceof RuntimeException ? $e->getMessage() : 'عملیات انجام نشد. کد حساب ممکن است تکراری باشد.';
+        $msg=$e instanceof RuntimeException ? $e->getMessage() : 'عملیات انجام نشد. کد حساب ممکن است تکراری باشد.'; $isSuccess=false;
     }
 }
 $edit = null;
@@ -126,7 +127,8 @@ $parents=$pdo->query("SELECT id,code,title,type,level FROM accounts WHERE is_act
 ?>
 <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>کدینگ حساب‌ها</title><link rel="stylesheet" href="assets/css/app.css"></head><body><main>
 <header class="app-header"><div><h1>کدینگ حساب‌ها</h1><p>گروه ← کل ← معین ← تفصیلی</p></div><a href="index.php?route=accounts&logout=1">خروج مدیر</a></header>
-<?php if($msg): ?><p class="msg"><?=ah($msg)?></p><?php endif; ?>
+<?php if($msg && !$isSuccess): ?><p class="msg error-msg"><?=ah($msg)?></p><?php endif; ?>
+<?php if($isSuccess): ?><dialog id="result-dialog" class="result-dialog" open aria-labelledby="result-title"><div class="dialog-mark" aria-hidden="true">✓</div><h2 id="result-title">ثبت شد</h2><p><?=ah($msg)?></p><button type="button" id="close-result-dialog" autofocus>متوجه شدم</button></dialog><div class="dialog-backdrop"></div><script>document.body.classList.add('dialog-visible');document.getElementById('close-result-dialog').addEventListener('click',function(){document.getElementById('result-dialog').close();document.querySelector('.dialog-backdrop').remove();document.body.classList.remove('dialog-visible')});</script><?php endif; ?>
 <section><h2><?=$edit?'ویرایش حساب':'ایجاد حساب جدید'?></h2><form method="post"><input type="hidden" name="csrf" value="<?=ah($_SESSION['csrf'])?>"><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?=ah($edit['id']??0)?>">
 <label>سطح حساب <select name="level" required><?php foreach($levels as $k=>$v): ?><option value="<?=$k?>" <?=($edit['level']??'detail')===$k?'selected':''?>><?=$v?></option><?php endforeach; ?></select></label>
 <label>ماهیت <select name="type" required><?php foreach($types as $k=>$v): ?><option value="<?=$k?>" <?=($edit['type']??'asset')===$k?'selected':''?>><?=$v?></option><?php endforeach; ?></select></label>
