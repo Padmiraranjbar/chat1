@@ -1,6 +1,5 @@
 <?php
 declare(strict_types=1);
-session_start();
 $configFile = dirname(__DIR__) . '/config.php';
 if (!is_file($configFile)) { http_response_code(500); exit('ابتدا config.php را تنظیم کنید.'); }
 $c = require $configFile;
@@ -70,7 +69,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 }
 $years=$db->query('SELECT * FROM fiscal_years ORDER BY start_date DESC')->fetchAll();
 ?><!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>مدیریت سال مالی</title>
-<style>body{font-family:Tahoma,Arial;background:#f4f6fa;color:#202938;margin:0}main{max-width:1000px;margin:auto;padding:20px}section{background:#fff;padding:18px;margin:14px 0;border-radius:12px;box-shadow:0 2px 10px #0001}input,button{padding:10px;margin:5px;border:1px solid #ccd2dc;border-radius:6px}button{background:#174ea6;color:white;cursor:pointer}table{width:100%;border-collapse:collapse}td,th{padding:9px;border-bottom:1px solid #ddd;text-align:right}.msg{background:#e7f5e8;padding:12px}</style></head><body><main>
+<link rel="stylesheet" href="assets/css/app.css"></head><body><main>
 <h1>افتتاح و پایان سال مالی</h1><p><a href="index.php">بازگشت به صفحه حسابداری</a></p><?php if($msg):?><p class="msg"><?=esc($msg)?></p><?php endif;?>
 <section><h2>افتتاح سال مالی جدید</h2><form method="post"><input type="hidden" name="csrf" value="<?=esc($_SESSION['fy_csrf'])?>"><input type="hidden" name="action" value="create"><input name="title" required placeholder="عنوان، مثلاً سال مالی ۱۴۰۵"><label>شروع: <input type="date" name="start_date" required></label><label>پایان: <input type="date" name="end_date" required></label><button>ایجاد سال مالی و سند افتتاحیه</button></form><p>مانده حساب‌های دائمی ثبت‌شده تا روز قبل از شروع، به‌صورت خودکار به سند افتتاحیه منتقل می‌شود.</p></section>
 <section><h2>سال‌های مالی</h2><table><tr><th>عنوان</th><th>شروع</th><th>پایان</th><th>وضعیت</th><th>سند افتتاحیه</th><th>سند اختتامیه</th><th>عملیات</th></tr><?php foreach($years as $y):?><tr><td><?=esc($y['title'])?></td><td><?=esc($y['start_date'])?></td><td><?=esc($y['end_date'])?></td><td><?= $y['status']==='closed'?'بسته':'باز' ?></td><td><?=esc($y['opening_entry_id']??'—')?></td><td><?=esc($y['closing_entry_id']??'—')?></td><td><?php if($y['status']==='open'):?><form method="post" onsubmit="return confirm('پس از بستن سال، این عملیات برگشت‌پذیر نیست. ادامه می‌دهید؟')"><input type="hidden" name="csrf" value="<?=esc($_SESSION['fy_csrf'])?>"><input type="hidden" name="action" value="close"><input type="hidden" name="id" value="<?=esc($y['id'])?>"><button>بستن سال مالی</button></form><?php else:?>—<?php endif;?></td></tr><?php endforeach;?></table></section>
