@@ -177,3 +177,6 @@ input,select,textarea{background:var(--user-card);color:var(--user-text)}
 .appearance-settings-actions .appearance-reset{background:transparent;color:var(--user-text);border:1px solid #9ca3af}
 @media(max-width:480px){.appearance-settings-button{right:10px;bottom:10px}.appearance-settings-dialog{padding:16px}.appearance-settings-actions button{flex:1 1 100%}}
 @media print{.appearance-settings-button,.appearance-settings-dialog{display:none!important}}
+
+/* Keep the selected text color consistent across headings, labels, tables and helper text */
+body :is(h1,h2,h3,h4,p,span,strong,small,label,td,th,li,summary,legend,output){color:var(--user-text)}
