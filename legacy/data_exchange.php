@@ -37,7 +37,10 @@ if(isset($_GET['template'])){
  $templates=[
   'products'=>['products-template.csv',"name,sku,purchase_price,sale_price\r\nPencil,SKU001,10000,15000\r\n"],
   'transactions'=>['transactions-template.csv',"txn_type,txn_date,product_sku,quantity,unit_price,payment_method,party_name\r\npurchase,2026-10-01,SKU001,10,10000,cash,Supplier\r\nsale,2026-10-02,SKU001,2,15000,cash,Customer\r\n"],
-  'accounts'=>['accounts-template.csv',"code,title,type,level,parent_code\r\n10101,Sub cash,asset,detail,101\r\n"]
+  'accounts'=>['accounts-template.csv',"code,title,type,level,parent_code\r\n"],
+  'receivable-documents'=>['receivable-documents-template.csv',"document_type,cheque_number,due_date,party_name,bank_name,amount,status,notes\r\nreceivable,,2026-12-01,,,,pending,\r\n"],
+  'payable-documents'=>['payable-documents-template.csv',"document_type,cheque_number,due_date,party_name,bank_name,amount,status,notes\r\npayable,,2026-12-01,,,,pending,\r\n"],
+  'bank-statement'=>['bank-statement-template.csv',"statement_date,description,reference_no,amount\r\n2026-12-01,,,0\r\n"]
  ];
  $key=(string)$_GET['template'];if(!isset($templates[$key])){http_response_code(404);exit('قالب پیدا نشد.');}
  header('Content-Type: text/csv; charset=UTF-8');header('Content-Disposition: attachment; filename="'.$templates[$key][0].'"');echo "\xEF\xBB\xBF".$templates[$key][1];exit;
