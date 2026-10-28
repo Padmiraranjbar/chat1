@@ -5,6 +5,8 @@ if(!is_file($configFile)){http_response_code(500);exit('ابتدا config.php ر
 $c=require $configFile;
 $db=new PDO("mysql:host={$c['host']};dbname={$c['database']};charset=utf8mb4",$c['username'],$c['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
 require dirname(__DIR__).'/app/Models/ChartOfAccounts.php'; ensureChartOfAccounts($db);
+
+if(empty($_SESSION['chart_admin'])){http_response_code(403);echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><main style="font-family:tahoma;max-width:720px;margin:40px auto;padding:20px"><h2>ورود مدیر لازم است</h2><p>برای جلوگیری از ورود اطلاعات غیرمجاز، ابتدا از بخش کدینگ حساب‌ها وارد حساب مدیر شوید.</p><a href="index.php?route=accounts">ورود مدیر</a></main></html>';exit;}
 /* Data-exchange tables are created with fixed SQL only; uploaded values are always bound parameters. */
 $db->exec("CREATE TABLE IF NOT EXISTS payment_documents (
  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -31,7 +33,7 @@ $db->exec("CREATE TABLE IF NOT EXISTS bank_statement_lines (
  INDEX idx_bank_date_amount (statement_date,amount), INDEX idx_bank_match (match_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-if(empty($_SESSION['chart_admin'])){http_response_code(403);echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><main style="font-family:tahoma;max-width:720px;margin:40px auto;padding:20px"><h2>ورود مدیر لازم است</h2><p>برای جلوگیری از ورود اطلاعات غیرمجاز، ابتدا از بخش کدینگ حساب‌ها وارد حساب مدیر شوید.</p><a href="index.php?route=accounts">ورود مدیر</a></main></html>';exit;}
+header('X-Content-Type-Options: nosniff');header('Referrer-Policy: same-origin');header('Cache-Control: no-store, private');
 function ex_h($v):string{return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
 if(isset($_GET['template'])){
  $templates=[
@@ -95,13 +97,13 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $status=trim((string)$r['status']);if($status==='')$status='pending';
     if(trim((string)$r['document_type'])!==$docType||!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$due)||!checkdate((int)substr($due,5,2),(int)substr($due,8,2),(int)substr($due,0,4))||$amount===false||$amount<=0||!in_array($status,['pending','deposited','paid','returned','cancelled'],true))throw new RuntimeException('نوع سند، تاریخ سررسید، مبلغ یا وضعیت نامعتبر است.');
     $q=$db->prepare('INSERT INTO payment_documents(document_type,cheque_number,due_date,party_name,bank_name,amount,status,notes) VALUES(?,?,?,?,?,?,?,?)');
-    $q->execute([$docType,mb_substr(trim((string)$r['cheque_number']),0,100),$due,mb_substr(trim((string)$r['party_name']),0,190),mb_substr(trim((string)$r['bank_name']),0,190),(float)$amount,$status,mb_substr(trim((string)$r['notes']),0,500)]);
+    $q->execute([$docType,substr(trim((string)$r['cheque_number']),0,100),$due,substr(trim((string)$r['party_name']),0,190),substr(trim((string)$r['bank_name']),0,190),(float)$amount,$status,substr(trim((string)$r['notes']),0,500)]);
    }elseif($kind==='bank-statement'){
     foreach(['statement_date','description','reference_no','amount'] as $key)if(!array_key_exists($key,$r))throw new RuntimeException('ستون‌های گردش بانک: statement_date, description, reference_no, amount');
     $date=trim((string)$r['statement_date']);$amountRaw=trim((string)$r['amount']);$amount=filter_var($amountRaw,FILTER_VALIDATE_FLOAT);
     if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$date)||!checkdate((int)substr($date,5,2),(int)substr($date,8,2),(int)substr($date,0,4))||$amount===false||!is_finite((float)$amount))throw new RuntimeException('تاریخ یا مبلغ گردش بانک نامعتبر است.');
     $q=$db->prepare('INSERT INTO bank_statement_lines(statement_date,description,reference_no,amount) VALUES(?,?,?,?)');
-    $q->execute([$date,mb_substr(trim((string)$r['description']),0,255),mb_substr(trim((string)$r['reference_no']),0,100),(float)$amount]);
+    $q->execute([$date,substr(trim((string)$r['description']),0,255),substr(trim((string)$r['reference_no']),0,100),(float)$amount]);
    }else throw new RuntimeException('نوع ورود اطلاعات معتبر نیست.');
    $count++;
   }
