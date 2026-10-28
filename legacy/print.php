@@ -23,6 +23,18 @@ if($report==='trial'){
 }else{
  $q=$db->prepare('SELECT e.id,e.entry_date,e.description,e.source_type,a.code,a.title,l.debit,l.credit FROM journal_entries e JOIN journal_lines l ON l.entry_id=e.id JOIN accounts a ON a.id=l.account_id WHERE e.entry_date BETWEEN ? AND ? ORDER BY e.entry_date,e.id,l.id');$q->execute([$from,$to]);$rows=$q->fetchAll();
 }
+if(($_GET['format']??'')==='csv'){
+ $filename='report-'.$report.'-'.$from.'-'.$to.'.csv';
+ header('Content-Type: text/csv; charset=UTF-8');
+ header('Content-Disposition: attachment; filename="'.$filename.'"');
+ header('X-Content-Type-Options: nosniff');
+ $out=fopen('php://output','w');fwrite($out,"\xEF\xBB\xBF");
+ $safe=static function($v){$v=(string)$v;return preg_match('/^[=+@\\-\\t\\r]/',$v)?"'".$v:$v;};
+ if($report==='trial'){fputcsv($out,['کد حساب','نام حساب','بدهکار','بستانکار']);foreach($rows as $x)fputcsv($out,array_map($safe,[$x['code'],$x['title'],$x['debit'],$x['credit']]));}
+ elseif($report==='transactions'){fputcsv($out,['شماره','تاریخ','نوع','کالا','تعداد','قیمت واحد','مبلغ','پرداخت','طرف حساب']);foreach($rows as $x)fputcsv($out,array_map($safe,[$x['id'],$x['txn_date'],$x['txn_type']==='sale'?'فروش':'خرید',$x['product'],$x['quantity'],$x['unit_price'],$x['total'],$x['payment_method']==='cash'?'نقدی':'نسیه',$x['party_name']]));}
+ else{fputcsv($out,['شماره سند','تاریخ','شرح','کد حساب','حساب','بدهکار','بستانکار']);foreach($rows as $x)fputcsv($out,array_map($safe,[$x['id'],$x['entry_date'],$x['description'],$x['code'],$x['title'],$x['debit'],$x['credit']]));}
+ fclose($out);exit;
+}
 ?><!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?=h($title)?></title>
 <link rel="stylesheet" href="assets/css/app.css"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#174ea6"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="حسابداری"><script src="assets/js/pwa.js" defer></script></head><body><main>
 <section class="no-print"><h2>مرکز چاپ و گزارش‌ها</h2><form method="get"><label>نوع گزارش <select name="report"><option value="journal" <?=$report==='journal'?'selected':''?>>دفتر روزنامه</option><option value="trial" <?=$report==='trial'?'selected':''?>>تراز آزمایشی</option><option value="transactions" <?=$report==='transactions'?'selected':''?>>خرید و فروش</option></select></label><label>از تاریخ <input type="date" name="from" value="<?=h($from)?>" required></label><label>تا تاریخ <input type="date" name="to" value="<?=h($to)?>" required></label><button>نمایش گزارش</button></form><div class="actions"><button type="button" onclick="window.print()">چاپ / ذخیره PDF</button><a class="button-link" href="index.php?route=print&amp;report=<?=h($report)?>&amp;from=<?=h($from)?>&amp;to=<?=h($to)?>&amp;format=csv">خروجی اکسل (CSV)</a><a href="index.php?route=data-exchange">ورود اطلاعات از اکسل</a><a href="index.php">بازگشت</a></div></section>
