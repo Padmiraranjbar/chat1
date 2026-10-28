@@ -10,6 +10,27 @@ $pdo = new PDO("mysql:host={$c['host']};dbname={$c['database']};charset=utf8mb4"
 ]);
 require dirname(__DIR__) . '/app/Models/ChartOfAccounts.php';
 ensureChartOfAccounts($pdo);
+/* Customer CRM and auditable product-price history. */
+$pdo->exec("CREATE TABLE IF NOT EXISTS customers (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ full_name VARCHAR(190) NOT NULL, phone VARCHAR(60) NOT NULL DEFAULT '',
+ address VARCHAR(500) NOT NULL DEFAULT '', email VARCHAR(190) NOT NULL DEFAULT '',
+ notes TEXT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ INDEX idx_customers_name (full_name), INDEX idx_customers_phone (phone)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$pdo->exec("CREATE TABLE IF NOT EXISTS product_price_history (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, product_id BIGINT UNSIGNED NOT NULL,
+ old_price DECIMAL(15,2) NOT NULL, new_price DECIMAL(15,2) NOT NULL,
+ changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ reason VARCHAR(255) NOT NULL DEFAULT 'تغییر قیمت هنگام فروش',
+ INDEX idx_price_product_date (product_id,changed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$txnCols=[];foreach($pdo->query('SHOW COLUMNS FROM transactions')->fetchAll() as $col)$txnCols[$col['Field']]=true;
+if(!isset($txnCols['discount_percent']))$pdo->exec('ALTER TABLE transactions ADD COLUMN discount_percent DECIMAL(7,3) NOT NULL DEFAULT 0');
+if(!isset($txnCols['discount_total']))$pdo->exec('ALTER TABLE transactions ADD COLUMN discount_total DECIMAL(15,2) NOT NULL DEFAULT 0');
+if(!isset($txnCols['customer_id']))$pdo->exec('ALTER TABLE transactions ADD COLUMN customer_id BIGINT UNSIGNED NULL, ADD INDEX idx_transactions_customer_date (customer_id,txn_date)');
+
 function h($v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 function postJournal(PDO $db, string $kind, int $id, string $date, string $desc, int $debitAccount, int $creditAccount, float $amount): void {
     if ($amount <= 0) throw new RuntimeException('مبلغ باید بیشتر از صفر باشد.');
@@ -46,28 +67,46 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         if (!hash_equals($_SESSION['csrf'] ?? '', $_POST['csrf'] ?? '')) throw new RuntimeException('درخواست نامعتبر است؛ صفحه را تازه کنید.');
         $action=$_POST['action'] ?? '';
         if ($action==='product') {
+            $name=trim((string)($_POST['name']??''));$sku=trim((string)($_POST['sku']??''));
+            $purchasePrice=filter_var($_POST['purchase_price']??null,FILTER_VALIDATE_FLOAT);$salePrice=filter_var($_POST['sale_price']??null,FILTER_VALIDATE_FLOAT);
+            if($name===''||$purchasePrice===false||$salePrice===false||$purchasePrice<0||$salePrice<0)throw new RuntimeException('نام کالا و قیمت‌های معتبر را وارد کنید.');
             $q=$pdo->prepare('INSERT INTO products(name,sku,stock,purchase_price,sale_price) VALUES(?,?,?,?,?)');
-            $q->execute([trim($_POST['name']),trim($_POST['sku']) ?: null,0,(float)$_POST['purchase_price'],(float)$_POST['sale_price']]);
-            $msg='ثبت شد'; $isSuccess=true;
+            $q->execute([$name,$sku?:null,0,$purchasePrice,$salePrice]);
+            $msg='کالا ثبت شد.'; $isSuccess=true;
+        } elseif ($action==='customer') {
+            $name=trim((string)($_POST['full_name']??''));$phone=trim((string)($_POST['phone']??''));$address=trim((string)($_POST['address']??''));$email=trim((string)($_POST['email']??''));$notes=trim((string)($_POST['notes']??''));
+            if($name==='')throw new RuntimeException('نام مشتری الزامی است.');
+            if($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL))throw new RuntimeException('ایمیل مشتری معتبر نیست.');
+            $q=$pdo->prepare('INSERT INTO customers(full_name,phone,address,email,notes) VALUES(?,?,?,?,?)');$q->execute([$name,$phone,$address,$email,$notes]);
+            $msg='مشتری در CRM ثبت شد.';$isSuccess=true;
         } elseif (in_array($action,['purchase','sale'],true)) {
-            $pid=(int)$_POST['product_id']; $qty=(float)$_POST['quantity']; $price=(float)$_POST['unit_price'];
-            $date=$_POST['txn_date']; $method=$_POST['payment_method']==='credit'?'credit':'cash';
-            if ($pid<1 || $qty<=0 || $price<=0) throw new RuntimeException('کالا، تعداد و قیمت را درست وارد کنید.');
+            $pid=(int)($_POST['product_id']??0);$qty=filter_var($_POST['quantity']??null,FILTER_VALIDATE_FLOAT);$price=filter_var($_POST['unit_price']??null,FILTER_VALIDATE_FLOAT);
+            $date=(string)($_POST['txn_date']??'');$method=($_POST['payment_method']??'cash')==='credit'?'credit':'cash';
+            $discountPercent=filter_var($_POST['discount_percent']??0,FILTER_VALIDATE_FLOAT);$customerId=(int)($_POST['customer_id']??0);
+            if($pid<1||$qty===false||$qty<=0||$price===false||$price<=0||$discountPercent===false||$discountPercent<0||$discountPercent>100)throw new RuntimeException('کالا، تعداد، قیمت یا درصد تخفیف نامعتبر است.');
+            if(!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$date)||!checkdate((int)substr($date,5,2),(int)substr($date,8,2),(int)substr($date,0,4)))throw new RuntimeException('تاریخ عملیات نامعتبر است.');
             $pdo->beginTransaction();
-            $q=$pdo->prepare('SELECT * FROM products WHERE id=? FOR UPDATE'); $q->execute([$pid]); $p=$q->fetch();
-            if (!$p) throw new RuntimeException('کالا پیدا نشد.');
-            if ($action==='sale' && (float)$p['stock']<$qty) throw new RuntimeException('موجودی کالا کافی نیست.');
-            $total=round($qty*$price,2); $type=$action;
+            $q=$pdo->prepare('SELECT * FROM products WHERE id=? FOR UPDATE');$q->execute([$pid]);$p=$q->fetch();
+            if(!$p)throw new RuntimeException('کالا پیدا نشد.');
+            if($action==='sale'&&(float)$p['stock']<$qty)throw new RuntimeException('موجودی کالا کافی نیست؛ فروش ثبت نشد.');
+            if($action==='sale'&&$customerId>0){$q=$pdo->prepare('SELECT id,full_name FROM customers WHERE id=?');$q->execute([$customerId]);$customer=$q->fetch();if(!$customer)throw new RuntimeException('مشتری انتخاب‌شده پیدا نشد.');$partyName=$customer['full_name'];}
+            else{$customerId=0;$partyName=trim((string)($_POST['party_name']??''));}
+            $gross=round($qty*$price,2);$discountTotal=round($gross*$discountPercent/100,2);$total=round($gross-$discountTotal,2);
+            if($total<=0)throw new RuntimeException('مبلغ نهایی باید بیشتر از صفر باشد.');
             $costTotal=$action==='sale'?round($qty*(float)$p['purchase_price'],2):0.0;
-            $q=$pdo->prepare('INSERT INTO transactions(txn_type,txn_date,product_id,quantity,unit_price,total,cost_total,payment_method,party_name) VALUES(?,?,?,?,?,?,?,?,?)');
-            $q->execute([$type,$date,$pid,$qty,$price,$total,$costTotal,$method,trim($_POST['party_name'] ?? '')]);
-            $tid=(int)$pdo->lastInsertId();
-            $delta=$action==='purchase'?$qty:-$qty;
-            $q=$pdo->prepare('UPDATE products SET stock=stock+?, purchase_price=CASE WHEN ?=1 THEN ? ELSE purchase_price END WHERE id=?');
+            $q=$pdo->prepare('INSERT INTO transactions(txn_type,txn_date,product_id,quantity,unit_price,total,cost_total,payment_method,party_name,discount_percent,discount_total,customer_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)');
+            $q->execute([$action,$date,$pid,$qty,$price,$total,$costTotal,$method,$partyName,$discountPercent,$discountTotal,$customerId?:null]);
+            $tid=(int)$pdo->lastInsertId();$delta=$action==='purchase'?$qty:-$qty;
+            $q=$pdo->prepare('UPDATE products SET stock=stock+?,purchase_price=CASE WHEN ?=1 THEN ? ELSE purchase_price END WHERE id=?');
             $q->execute([$delta,$action==='purchase'?1:0,$price,$pid]);
-            if ($action==='purchase') postJournal($pdo,$type,$tid,$date,'خرید کالا: '.$p['name'],$method==='cash'?5:5,$method==='cash'?1:2,$total);
-            else postJournal($pdo,$type,$tid,$date,'فروش کالا: '.$p['name'],$method==='cash'?1:2,4,$total);
-            $pdo->commit(); $msg='ثبت شد؛ سند حسابداری هم به‌صورت خودکار ایجاد شد.'; $isSuccess=true;
+            if($action==='sale'&&!empty($_POST['update_catalog_price'])&&abs((float)$p['sale_price']-$price)>0.001){
+                $q=$pdo->prepare('INSERT INTO product_price_history(product_id,old_price,new_price,reason) VALUES(?,?,?,?)');
+                $q->execute([$pid,(float)$p['sale_price'],$price,'تغییر قیمت هنگام ثبت فروش #'.$tid]);
+                $q=$pdo->prepare('UPDATE products SET sale_price=? WHERE id=?');$q->execute([$price,$pid]);
+            }
+            if($action==='purchase')postJournal($pdo,$action,$tid,$date,'خرید کالا: '.$p['name'],$method==='cash'?5:5,$method==='cash'?1:2,$total);
+            else postJournal($pdo,$action,$tid,$date,'فروش کالا: '.$p['name'].'؛ تخفیف '.$discountPercent.'٪',$method==='cash'?1:2,4,$total);
+            $pdo->commit();$msg='ثبت شد؛ موجودی کنترل و سند حسابداری به‌صورت خودکار ایجاد شد.';$isSuccess=true;
         } elseif ($action==='settings') {
             $logoPath = '';
             $oldSettings=$pdo->query('SELECT logo_path FROM settings WHERE id=1')->fetch() ?: [];
