@@ -25,10 +25,11 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   $fp=fopen($_FILES['csv_file']['tmp_name'],'rb');if(!$fp)throw new RuntimeException('فایل خوانده نشد.');
   $first=fgets($fp);if($first===false)throw new RuntimeException('فایل خالی است.');
   $first=preg_replace('/^\xEF\xBB\xBF/','',$first);$headers=array_map(static fn($v)=>trim((string)$v),str_getcsv(trim($first)));
-  $kind=(string)($_POST['import_type']??'products');$count=0;$db->beginTransaction();
-  // Upgrade older installations before importing sales that need cost history.
+  $kind=(string)($_POST['import_type']??'products');$count=0;
+  // Upgrade older installations before starting the data transaction.
   $columns=[];foreach($db->query('SHOW COLUMNS FROM transactions')->fetchAll() as $col)$columns[$col['Field']]=true;
   if(!isset($columns['cost_total']))$db->exec('ALTER TABLE transactions ADD COLUMN cost_total DECIMAL(15,2) NOT NULL DEFAULT 0 AFTER total');
+  $db->beginTransaction();
   while(($row=fgetcsv($fp))!==false){
    if(count($row)===1&&trim((string)$row[0])==='')continue;
    if(count($row)!==count($headers))throw new RuntimeException('تعداد ستون‌های یکی از ردیف‌ها با سرفصل‌ها برابر نیست.');
