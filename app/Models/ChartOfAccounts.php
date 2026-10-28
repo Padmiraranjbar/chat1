@@ -42,7 +42,7 @@ function ensureChartOfAccounts(PDO $pdo): void {
         $q = $pdo->prepare('SELECT id FROM accounts WHERE code=?');
         $q->execute([$subsidiaryCode]); $subsidiaryId = (int)$q->fetchColumn();
 
-        $q = $pdo->prepare("UPDATE accounts SET parent_id=?, level='detail', is_postable=1 WHERE type=? AND code NOT IN (?,?,?) AND (parent_id IS NULL OR parent_id=0)");
+        $q = $pdo->prepare("UPDATE accounts SET parent_id=?, level='detail', is_postable=1 WHERE type=? AND level='detail' AND code NOT IN (?,?,?) AND (parent_id IS NULL OR parent_id=0)");
         $q->execute([$subsidiaryId,$type,$groupCode,$generalCode,$subsidiaryCode]);
     }
 }
