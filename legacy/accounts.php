@@ -69,7 +69,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'login
                 $q=$pdo->prepare('SELECT COUNT(*) FROM journal_lines WHERE account_id=?'); $q->execute([$id]); $hasJournal=(int)$q->fetchColumn()>0;
                 if ($hasJournal && ($level !== $old['level'] || $type !== $old['type'] || $level !== 'detail')) throw new RuntimeException('حساب دارای سند را نمی‌توان به سطح یا ماهیت دیگری منتقل کرد.');
                 $q=$pdo->prepare('SELECT COUNT(*) FROM accounts WHERE parent_id=?'); $q->execute([$id]); $hasChildren=(int)$q->fetchColumn()>0;
-                if ($hasChildren && $level==='detail') throw new RuntimeException('حسابی که زیرحساب دارد نمی‌تواند تفصیلی شود.');
+                if ($hasChildren && $level !== $old['level']) throw new RuntimeException('سطح حسابی که زیرحساب دارد قابل تغییر نیست.');
+                if ($hasChildren && $type !== $old['type']) throw new RuntimeException('ماهیت حساب دارای زیرحساب قابل تغییر نیست.');
+                if ($id >= 1 && $id <= 5 && ($level !== 'detail' || $type !== $old['type'])) throw new RuntimeException('سطح و ماهیت حساب‌های پایه سیستم قابل تغییر نیست.');
                 $parentId = $parentId ?: 0;
                 if ($level==='group') $parentId=0;
                 else {
