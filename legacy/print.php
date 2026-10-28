@@ -6,6 +6,8 @@ $c=require $configFile;
 $db=new PDO("mysql:host={$c['host']};dbname={$c['database']};charset=utf8mb4",$c['username'],$c['password'],[
  PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC
 ]);
+require dirname(__DIR__) . '/app/Models/ChartOfAccounts.php';
+ensureChartOfAccounts($db);
 function h($v):string{return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
 $report=$_GET['report']??'journal';
 $from=$_GET['from']??date('Y-01-01');$to=$_GET['to']??date('Y-m-d');
@@ -14,7 +16,7 @@ $settings=$db->query('SELECT * FROM settings WHERE id=1')->fetch()?:['business_n
 $rows=[];$title='دفتر روزنامه';
 if($report==='trial'){
  $title='تراز آزمایشی';
- $q=$db->prepare('SELECT a.code,a.title,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounts a LEFT JOIN journal_lines l ON l.account_id=a.id LEFT JOIN journal_entries e ON e.id=l.entry_id AND e.entry_date BETWEEN ? AND ? GROUP BY a.id ORDER BY a.code');$q->execute([$from,$to]);$rows=$q->fetchAll();
+ $q=$db->prepare('SELECT a.code,a.title,COALESCE(SUM(l.debit),0) debit,COALESCE(SUM(l.credit),0) credit FROM accounts a LEFT JOIN journal_lines l ON l.account_id=a.id LEFT JOIN journal_entries e ON e.id=l.entry_id AND e.entry_date BETWEEN ? AND ? WHERE a.is_postable=1 GROUP BY a.id ORDER BY a.code');$q->execute([$from,$to]);$rows=$q->fetchAll();
 }elseif($report==='transactions'){
  $title='گزارش خرید و فروش';
  $q=$db->prepare('SELECT t.id,t.txn_date,t.txn_type,p.name product,t.quantity,t.unit_price,t.total,t.payment_method,t.party_name FROM transactions t JOIN products p ON p.id=t.product_id WHERE t.txn_date BETWEEN ? AND ? ORDER BY t.txn_date,t.id');$q->execute([$from,$to]);$rows=$q->fetchAll();
