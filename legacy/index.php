@@ -79,6 +79,12 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             if($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL))throw new RuntimeException('ایمیل مشتری معتبر نیست.');
             $q=$pdo->prepare('INSERT INTO customers(full_name,phone,address,email,notes) VALUES(?,?,?,?,?)');$q->execute([$name,$phone,$address,$email,$notes]);
             $msg='مشتری در CRM ثبت شد.';$isSuccess=true;
+        } elseif ($action==='customer_update') {
+            $customerId=(int)($_POST['edit_customer_id']??0);$name=trim((string)($_POST['edit_full_name']??''));$phone=trim((string)($_POST['edit_phone']??''));$address=trim((string)($_POST['edit_address']??''));$email=trim((string)($_POST['edit_email']??''));$notes=trim((string)($_POST['edit_notes']??''));
+            if($customerId<1||$name==='')throw new RuntimeException('مشتری و نام معتبر انتخاب کنید.');
+            if($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL))throw new RuntimeException('ایمیل مشتری معتبر نیست.');
+            $q=$pdo->prepare('UPDATE customers SET full_name=?,phone=?,address=?,email=?,notes=? WHERE id=?');$q->execute([$name,$phone,$address,$email,$notes,$customerId]);
+            $msg='اطلاعات مشتری به‌روزرسانی شد.';$isSuccess=true;
         } elseif (in_array($action,['purchase','sale'],true)) {
             $pid=(int)($_POST['product_id']??0);$qty=filter_var($_POST['quantity']??null,FILTER_VALIDATE_FLOAT);$price=filter_var($_POST['unit_price']??null,FILTER_VALIDATE_FLOAT);
             $date=(string)($_POST['txn_date']??'');$method=($_POST['payment_method']??'cash')==='credit'?'credit':'cash';
@@ -159,6 +165,11 @@ $balances=$pdo->query('SELECT a.code,a.title,a.type,COALESCE(SUM(l.debit),0) deb
 <section id="crm"><h2>CRM مشتریان</h2>
 <form method="post"><input type="hidden" name="csrf" value="<?=h($_SESSION['csrf'])?>"><input type="hidden" name="action" value="customer">
 <input name="full_name" required maxlength="190" placeholder="نام و نام خانوادگی مشتری"><input name="phone" type="tel" maxlength="60" placeholder="شماره تلفن"><input name="email" type="email" maxlength="190" placeholder="ایمیل"><input name="address" maxlength="500" placeholder="نشانی"><textarea name="notes" placeholder="یادداشت درباره مشتری"></textarea><button>ثبت مشتری</button></form>
+<h3>ویرایش اطلاعات مشتری</h3>
+<form method="post" id="customer-edit-form"><input type="hidden" name="csrf" value="<?=h($_SESSION['csrf'])?>"><input type="hidden" name="action" value="customer_update">
+<label>انتخاب مشتری <select name="edit_customer_id" id="crm-edit-select" required><option value="">انتخاب کنید</option><?php foreach($customers as $cust): ?><option value="<?=h($cust['id'])?>" data-name="<?=h($cust['full_name'])?>" data-phone="<?=h($cust['phone'])?>" data-address="<?=h($cust['address'])?>" data-email="<?=h($cust['email'])?>" data-notes="<?=h($cust['notes'])?>"><?=h($cust['full_name'])?></option><?php endforeach; ?></select></label>
+<input name="edit_full_name" id="crm-edit-name" required placeholder="نام مشتری"><input name="edit_phone" id="crm-edit-phone" type="tel" placeholder="تلفن"><input name="edit_email" id="crm-edit-email" type="email" placeholder="ایمیل"><input name="edit_address" id="crm-edit-address" placeholder="نشانی"><textarea name="edit_notes" id="crm-edit-notes" placeholder="یادداشت CRM"></textarea><button>ذخیره تغییرات مشتری</button></form>
+<script>(function(){var s=document.getElementById('crm-edit-select');if(!s)return;function fill(){var o=s.options[s.selectedIndex];document.getElementById('crm-edit-name').value=o.dataset.name||'';document.getElementById('crm-edit-phone').value=o.dataset.phone||'';document.getElementById('crm-edit-address').value=o.dataset.address||'';document.getElementById('crm-edit-email').value=o.dataset.email||'';document.getElementById('crm-edit-notes').value=o.dataset.notes||'';}s.addEventListener('change',fill);if(s.value)fill();})();</script>
 <h3>مشتریان ثبت‌شده و خرید در بازه گزارش</h3>
 <table><thead><tr><th>نام</th><th>تلفن</th><th>نشانی</th><th>ایمیل</th><th>مبلغ خرید در بازه</th><th>تعداد ثبت</th></tr></thead><tbody>
 <?php foreach($customers as $cust): $cq=$pdo->prepare("SELECT COUNT(*) cnt,COALESCE(SUM(total),0) amount FROM transactions WHERE txn_type='sale' AND customer_id=? AND txn_date BETWEEN ? AND ?");$cq->execute([$cust['id'],$reportStart,$reportEnd]);$cs=$cq->fetch();?>
