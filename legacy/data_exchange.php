@@ -32,6 +32,14 @@ $db->exec("CREATE TABLE IF NOT EXISTS bank_statement_lines (
  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
  INDEX idx_bank_date_amount (statement_date,amount), INDEX idx_bank_match (match_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$db->exec("CREATE TABLE IF NOT EXISTS customers (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, full_name VARCHAR(190) NOT NULL,
+ phone VARCHAR(60) NOT NULL DEFAULT '', address VARCHAR(500) NOT NULL DEFAULT '',
+ email VARCHAR(190) NOT NULL DEFAULT '', notes TEXT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ INDEX idx_customers_name (full_name), INDEX idx_customers_phone (phone)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 header('X-Content-Type-Options: nosniff');header('Referrer-Policy: same-origin');header('Cache-Control: no-store, private');
 function ex_h($v):string{return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
@@ -42,7 +50,8 @@ if(isset($_GET['template'])){
   'accounts'=>['accounts-template.csv',"code,title,type,level,parent_code\r\n"],
   'receivable-documents'=>['receivable-documents-template.csv',"document_type,cheque_number,due_date,party_name,bank_name,amount,status,notes\r\n"],
   'payable-documents'=>['payable-documents-template.csv',"document_type,cheque_number,due_date,party_name,bank_name,amount,status,notes\r\n"],
-  'bank-statement'=>['bank-statement-template.csv',"statement_date,description,reference_no,amount\r\n"]
+  'bank-statement'=>['bank-statement-template.csv',"statement_date,description,reference_no,amount\r\n"],
+  'customers'=>['customers-template.csv',"full_name,phone,email,address,notes\r\n"]
  ];
  $key=(string)$_GET['template'];if(!isset($templates[$key])){http_response_code(404);exit('قالب پیدا نشد.');}
  header('Content-Type: text/csv; charset=UTF-8');header('Content-Disposition: attachment; filename="'.$templates[$key][0].'"');echo "\xEF\xBB\xBF".$templates[$key][1];exit;
@@ -98,6 +107,12 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     if(trim((string)$r['document_type'])!==$docType||!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/',$due)||!checkdate((int)substr($due,5,2),(int)substr($due,8,2),(int)substr($due,0,4))||$amount===false||$amount<=0||!in_array($status,['pending','deposited','paid','returned','cancelled'],true))throw new RuntimeException('نوع سند، تاریخ سررسید، مبلغ یا وضعیت نامعتبر است.');
     $q=$db->prepare('INSERT INTO payment_documents(document_type,cheque_number,due_date,party_name,bank_name,amount,status,notes) VALUES(?,?,?,?,?,?,?,?)');
     $q->execute([$docType,substr(trim((string)$r['cheque_number']),0,100),$due,substr(trim((string)$r['party_name']),0,190),substr(trim((string)$r['bank_name']),0,190),(float)$amount,$status,substr(trim((string)$r['notes']),0,500)]);
+   }elseif($kind==='customers'){
+    foreach(['full_name','phone','email','address','notes'] as $key)if(!array_key_exists($key,$r))throw new RuntimeException('ستون‌های مشتری: full_name, phone, email, address, notes');
+    $name=trim((string)$r['full_name']);$email=trim((string)$r['email']);
+    if($name===''||($email!==''&&!filter_var($email,FILTER_VALIDATE_EMAIL)))throw new RuntimeException('نام مشتری یا ایمیل نامعتبر است.');
+    $q=$db->prepare('INSERT INTO customers(full_name,phone,email,address,notes) VALUES(?,?,?,?,?)');
+    $q->execute([substr($name,0,190),substr(trim((string)$r['phone']),0,60),substr($email,0,190),substr(trim((string)$r['address']),0,500),substr(trim((string)$r['notes']),0,5000)]);
    }elseif($kind==='bank-statement'){
     foreach(['statement_date','description','reference_no','amount'] as $key)if(!array_key_exists($key,$r))throw new RuntimeException('ستون‌های گردش بانک: statement_date, description, reference_no, amount');
     $date=trim((string)$r['statement_date']);$amountRaw=trim((string)$r['amount']);$amount=filter_var($amountRaw,FILTER_VALIDATE_FLOAT);
@@ -116,7 +131,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 }
 ?><!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ورود اطلاعات از اکسل</title><link rel="stylesheet" href="assets/css/app.css"></head><body><main><header class="app-header"><div><h1>ورود اطلاعات از اکسل</h1><p>در Excel فایل را با فرمت CSV UTF-8 ذخیره کنید.</p></div><a href="index.php">بازگشت به داشبورد</a></header>
 <?php if($message):?><p class="msg <?=$success?'':'error-msg'?>"><?=ex_h($message)?></p><?php endif;?>
-<section><h2>بارگذاری اطلاعات</h2><p>قبل از ورود فایل، نسخه پشتیبان بگیرید. اگر یک ردیف خطا داشته باشد، ورود کل فایل لغو می‌شود.</p><form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=ex_h($_SESSION['exchange_csrf'])?>"><label>نوع اطلاعات <select name="import_type"><option value="products">کالاها</option><option value="transactions">خرید و فروش</option><option value="accounts">کدینگ حساب‌ها</option><option value="receivable-documents">اسناد دریافتنی</option><option value="payable-documents">اسناد پرداختنی</option><option value="bank-statement">گردش حساب بانکی</option></select></label><label>فایل CSV <input type="file" name="csv_file" accept=".csv,text/csv" required></label><button type="submit">بررسی و وارد کردن</button></form></section>
-<section><h2>قالب‌های آماده</h2><p>فایل‌های خام فقط سرفصل دارند. قالب را دانلود کنید، ردیف‌های خود را در Excel اضافه کنید و با فرمت CSV UTF-8 ذخیره کنید. نام ستون‌ها را تغییر ندهید.</p><p><a href="index.php?route=data-exchange&amp;template=products">قالب کالاها</a> | <a href="index.php?route=data-exchange&amp;template=transactions">قالب خرید و فروش</a> | <a href="index.php?route=data-exchange&amp;template=accounts">قالب کدینگ حساب‌ها</a> | <a href="index.php?route=data-exchange&amp;template=receivable-documents">قالب اسناد دریافتنی</a> | <a href="index.php?route=data-exchange&amp;template=payable-documents">قالب اسناد پرداختنی</a> | <a href="index.php?route=data-exchange&amp;template=bank-statement">قالب گردش بانک</a></p>
+<section><h2>بارگذاری اطلاعات</h2><p>قبل از ورود فایل، نسخه پشتیبان بگیرید. اگر یک ردیف خطا داشته باشد، ورود کل فایل لغو می‌شود.</p><form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=ex_h($_SESSION['exchange_csrf'])?>"><label>نوع اطلاعات <select name="import_type"><option value="products">کالاها</option><option value="transactions">خرید و فروش</option><option value="accounts">کدینگ حساب‌ها</option><option value="receivable-documents">اسناد دریافتنی</option><option value="payable-documents">اسناد پرداختنی</option><option value="bank-statement">گردش حساب بانکی</option><option value="customers">مشتریان CRM</option></select></label><label>فایل CSV <input type="file" name="csv_file" accept=".csv,text/csv" required></label><button type="submit">بررسی و وارد کردن</button></form></section>
+<section><h2>قالب‌های آماده</h2><p>فایل‌های خام فقط سرفصل دارند. قالب را دانلود کنید، ردیف‌های خود را در Excel اضافه کنید و با فرمت CSV UTF-8 ذخیره کنید. نام ستون‌ها را تغییر ندهید.</p><p><a href="index.php?route=data-exchange&amp;template=products">قالب کالاها</a> | <a href="index.php?route=data-exchange&amp;template=transactions">قالب خرید و فروش</a> | <a href="index.php?route=data-exchange&amp;template=accounts">قالب کدینگ حساب‌ها</a> | <a href="index.php?route=data-exchange&amp;template=receivable-documents">قالب اسناد دریافتنی</a> | <a href="index.php?route=data-exchange&amp;template=payable-documents">قالب اسناد پرداختنی</a> | <a href="index.php?route=data-exchange&amp;template=bank-statement">قالب گردش بانک</a> | <a href="index.php?route=data-exchange&amp;template=customers">قالب مشتریان CRM</a></p>
 <h3>نوع‌های مجاز در فایل خرید/فروش</h3><p>txn_type: purchase یا sale؛ payment_method: cash یا credit؛ تاریخ به شکل YYYY-MM-DD؛ برای هر کالا product_sku یکتا لازم است.</p>
 <p><a class="button-link" href="index.php?route=print&amp;report=documents">چاپ/خروجی اسناد دریافتنی و پرداختنی</a> <a class="button-link" href="index.php?route=print&amp;report=bank-reconciliation">گزارش مغایرت‌گیری بانکی</a></p><p class="report-note">قالب‌های اسناد دریافتنی/پرداختنی در جدول اسناد ذخیره می‌شوند. گردش بانک فعلاً وارد می‌شود و برای مغایرت‌گیری باید تطبیق‌ها در مرحله بعد بررسی شوند. این نسخه CSV سازگار با Excel را می‌پذیرد، نه فایل XLSX مستقیم.</p></section></main></body></html>
