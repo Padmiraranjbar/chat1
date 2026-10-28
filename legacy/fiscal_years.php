@@ -16,6 +16,7 @@ $db->exec("INSERT IGNORE INTO accounts(id,code,title,type) VALUES(6,'302','سو�
 function esc($v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 $_SESSION['fy_csrf'] ??= bin2hex(random_bytes(32));
 $msg='';
+$isSuccess=false;
 function addEntry(PDO $db,string $date,string $desc,string $kind,int $sourceId,array $lines): int {
  $q=$db->prepare('INSERT INTO journal_entries(entry_date,description,source_type,source_id) VALUES(?,?,?,?)');
  $q->execute([$date,$desc,$kind,$sourceId]); $id=(int)$db->lastInsertId();
@@ -45,7 +46,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $entry=addEntry($db,$start,'سند افتتاحیه '.$title,'opening',$fy,$lines);
     $u=$db->prepare('UPDATE fiscal_years SET opening_entry_id=? WHERE id=?');$u->execute([$entry,$fy]);
    }
-   $db->commit(); $msg='سال مالی ایجاد شد'.($lines?' و سند افتتاحیه مانده حساب‌های دائمی ثبت شد.':'؛ چون مانده قبلی پیدا نشد، سند افتتاحیه لازم نبود.');
+   $db->commit(); $msg='ثبت شد؛ سال مالی ایجاد شد'.($lines?' و سند افتتاحیه مانده حساب‌های دائمی ثبت شد.':'؛ چون مانده قبلی پیدا نشد، سند افتتاحیه لازم نبود.'); $isSuccess=true;
   } elseif($action==='close'){
    $id=(int)($_POST['id']??0); $db->beginTransaction();
    $q=$db->prepare("SELECT * FROM fiscal_years WHERE id=? FOR UPDATE");$q->execute([$id]);$fy=$q->fetch();
@@ -63,14 +64,17 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    if($lines){$entry=addEntry($db,$fy['end_date'],'بستن حساب‌های موقت سال مالی '.$fy['title'],'closing',$id,$lines);}
    else {$entry=null;}
    $u=$db->prepare("UPDATE fiscal_years SET status='closed',closing_entry_id=? WHERE id=?");$u->execute([$entry,$id]);
-   $db->commit();$msg='سال مالی بسته شد. سود/زیان خالص محاسبه و حساب‌های درآمد و هزینه بسته شدند.';
+   $db->commit();$msg='ثبت شد؛ سال مالی بسته شد و حساب‌های درآمد و هزینه بسته شدند.'; $isSuccess=true;
   }
- }catch(Throwable $e){if($db->inTransaction())$db->rollBack();$msg='خطا: '.$e->getMessage();}
+ }catch(Throwable $e){if($db->inTransaction())$db->rollBack();$msg='خطا: '.$e->getMessage();$isSuccess=false;}
+ if($isSuccess){$_SESSION['fy_flash_success']=$msg;header('Location: index.php?route=fiscal-years');exit;}
 }
+if(isset($_SESSION['fy_flash_success'])){$msg=(string)$_SESSION['fy_flash_success'];$isSuccess=true;unset($_SESSION['fy_flash_success']);}
 $years=$db->query('SELECT * FROM fiscal_years ORDER BY start_date DESC')->fetchAll();
 ?><!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>مدیریت سال مالی</title>
 <link rel="stylesheet" href="assets/css/app.css"></head><body><main>
-<h1>افتتاح و پایان سال مالی</h1><p><a href="index.php">بازگشت به صفحه حسابداری</a></p><?php if($msg):?><p class="msg"><?=esc($msg)?></p><?php endif;?>
+<h1>افتتاح و پایان سال مالی</h1><p><a href="index.php">بازگشت به صفحه حسابداری</a></p><?php if($msg && !$isSuccess):?><p class="msg error-msg"><?=esc($msg)?></p><?php endif;?>
+<?php if($isSuccess):?><dialog id="result-dialog" class="result-dialog" open aria-labelledby="result-title"><div class="dialog-mark" aria-hidden="true">✓</div><h2 id="result-title">ثبت شد</h2><p><?=esc($msg)?></p><button type="button" id="close-result-dialog" autofocus>متوجه شدم</button></dialog><div class="dialog-backdrop"></div><script>document.body.classList.add('dialog-visible');document.getElementById('close-result-dialog').addEventListener('click',function(){document.getElementById('result-dialog').close();document.querySelector('.dialog-backdrop').remove();document.body.classList.remove('dialog-visible')});</script><?php endif;?>
 <section><h2>افتتاح سال مالی جدید</h2><form method="post"><input type="hidden" name="csrf" value="<?=esc($_SESSION['fy_csrf'])?>"><input type="hidden" name="action" value="create"><input name="title" required placeholder="عنوان، مثلاً سال مالی ۱۴۰۵"><label>شروع: <input type="date" name="start_date" required></label><label>پایان: <input type="date" name="end_date" required></label><button>ایجاد سال مالی و سند افتتاحیه</button></form><p>مانده حساب‌های دائمی ثبت‌شده تا روز قبل از شروع، به‌صورت خودکار به سند افتتاحیه منتقل می‌شود.</p></section>
 <section><h2>سال‌های مالی</h2><table><tr><th>عنوان</th><th>شروع</th><th>پایان</th><th>وضعیت</th><th>سند افتتاحیه</th><th>سند اختتامیه</th><th>عملیات</th></tr><?php foreach($years as $y):?><tr><td><?=esc($y['title'])?></td><td><?=esc($y['start_date'])?></td><td><?=esc($y['end_date'])?></td><td><?= $y['status']==='closed'?'بسته':'باز' ?></td><td><?=esc($y['opening_entry_id']??'—')?></td><td><?=esc($y['closing_entry_id']??'—')?></td><td><?php if($y['status']==='open'):?><form method="post" onsubmit="return confirm('پس از بستن سال، این عملیات برگشت‌پذیر نیست. ادامه می‌دهید؟')"><input type="hidden" name="csrf" value="<?=esc($_SESSION['fy_csrf'])?>"><input type="hidden" name="action" value="close"><input type="hidden" name="id" value="<?=esc($y['id'])?>"><button>بستن سال مالی</button></form><?php else:?>—<?php endif;?></td></tr><?php endforeach;?></table></section>
 <p><strong>توجه:</strong> پیش از بستن سال در داده‌های واقعی، پشتیبان بگیرید و مانده‌ها را با حسابدار بررسی کنید. این ماژول هنوز ثبت خرید/فروش در صفحه اصلی را به سال مالی باز محدود نمی‌کند.</p></main></body></html>
