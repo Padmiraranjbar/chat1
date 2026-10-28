@@ -97,3 +97,16 @@ body.dialog-visible{overflow:hidden}
 .product-suggestion small,.product-suggestion-empty{color:#667085;font-size:12px}
 .product-suggestion-empty{padding:12px}
 @media(max-width:768px){.product-autocomplete{flex:1 1 100%;width:100%;margin:2px 0}}
+
+
+/* Purchase/sales report dashboard */
+.report-filter{align-items:flex-end;margin-bottom:14px}
+.report-filter label{display:flex;flex-direction:column;gap:3px;flex:1 1 180px;color:#475467;font-size:13px}
+.report-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px;margin:16px 0 24px}
+.report-card{display:flex;flex-direction:column;gap:7px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:15px;min-width:0}
+.report-card span,.report-card small{color:#667085;font-size:13px}
+.report-card strong{font-size:clamp(18px,2.5vw,24px);overflow-wrap:anywhere}
+.report-profit strong{color:#16834b}.report-loss strong{color:#b42318}
+.report-chart-wrap{width:100%;overflow:hidden;border:1px solid #e2e8f0;border-radius:12px;padding:8px;margin-bottom:16px}
+#trade-chart{display:block;width:100%;height:260px}
+.report-note{font-size:12px;line-height:1.9;color:#667085;background:#f8fafc;padding:12px;border-radius:8px}
