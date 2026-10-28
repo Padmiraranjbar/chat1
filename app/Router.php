@@ -11,6 +11,7 @@ final class Router {
    case 'home': (new HomeController())->index(); return;
    case 'fiscal-years': (new FiscalYearController())->index(); return;
    case 'print': (new PrintController())->index(); return;
+   case 'accounts': (new AccountsController())->index(); return;
    default: http_response_code(404); echo 'صفحه پیدا نشد.';
   }
  }
