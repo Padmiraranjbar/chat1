@@ -12,8 +12,11 @@ if (strlen($adminHash) < 50) {
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
 $msg = '';
 $isSuccess = false;
-if (isset($_GET['logout'])) {
-    $_SESSION['chart_admin'] = false;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'logout') {
+    if (hash_equals($_SESSION['csrf'], (string)($_POST['csrf'] ?? ''))) {
+        unset($_SESSION['chart_admin']);
+        session_regenerate_id(true);
+    }
     header('Location: index.php?route=accounts'); exit;
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'login') {
@@ -119,14 +122,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'login
         error_log('Chart of accounts error: '.$e->getMessage());
         $msg=$e instanceof RuntimeException ? $e->getMessage() : 'عملیات انجام نشد. کد حساب ممکن است تکراری باشد.'; $isSuccess=false;
     }
+    if ($isSuccess) { $_SESSION['flash_success']=$msg; header('Location: index.php?route=accounts'); exit; }
 }
+if (isset($_SESSION['flash_success'])) { $msg=(string)$_SESSION['flash_success']; $isSuccess=true; unset($_SESSION['flash_success']); }
 $edit = null;
 if (isset($_GET['edit'])) { $q=$pdo->prepare('SELECT * FROM accounts WHERE id=?'); $q->execute([(int)$_GET['edit']]); $edit=$q->fetch() ?: null; }
 $accounts=$pdo->query("SELECT a.*,p.code parent_code,p.title parent_title FROM accounts a LEFT JOIN accounts p ON p.id=a.parent_id ORDER BY a.code")->fetchAll();
 $parents=$pdo->query("SELECT id,code,title,type,level FROM accounts WHERE is_active=1 AND level IN ('group','general','subsidiary') ORDER BY code")->fetchAll();
 ?>
 <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>کدینگ حساب‌ها</title><link rel="stylesheet" href="assets/css/app.css"></head><body><main>
-<header class="app-header"><div><h1>کدینگ حساب‌ها</h1><p>گروه ← کل ← معین ← تفصیلی</p></div><a href="index.php?route=accounts&logout=1">خروج مدیر</a></header>
+<header class="app-header"><div><h1>کدینگ حساب‌ها</h1><p>گروه ← کل ← معین ← تفصیلی</p></div><form method="post"><input type="hidden" name="csrf" value="<?=ah($_SESSION['csrf'])?>"><input type="hidden" name="action" value="logout"><button type="submit">خروج مدیر</button></form></header>
 <?php if($msg && !$isSuccess): ?><p class="msg error-msg"><?=ah($msg)?></p><?php endif; ?>
 <?php if($isSuccess): ?><dialog id="result-dialog" class="result-dialog" open aria-labelledby="result-title"><div class="dialog-mark" aria-hidden="true">✓</div><h2 id="result-title">ثبت شد</h2><p><?=ah($msg)?></p><button type="button" id="close-result-dialog" autofocus>متوجه شدم</button></dialog><div class="dialog-backdrop"></div><script>document.body.classList.add('dialog-visible');document.getElementById('close-result-dialog').addEventListener('click',function(){document.getElementById('result-dialog').close();document.querySelector('.dialog-backdrop').remove();document.body.classList.remove('dialog-visible')});</script><?php endif; ?>
 <section><h2><?=$edit?'ویرایش حساب':'ایجاد حساب جدید'?></h2><form method="post"><input type="hidden" name="csrf" value="<?=ah($_SESSION['csrf'])?>"><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?=ah($edit['id']??0)?>">
