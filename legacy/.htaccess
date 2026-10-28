@@ -1,0 +1,2 @@
+# Legacy PHP files are loaded internally by the front controller only.
+Require all denied
