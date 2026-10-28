@@ -39,7 +39,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
    $db->beginTransaction();
    $q=$db->prepare("INSERT INTO fiscal_years(title,start_date,end_date) VALUES(?,?,?)"); $q->execute([$title,$start,$end]); $fy=(int)$db->lastInsertId();
    $prior=date('Y-m-d',strtotime($start.' -1 day'));
-   $q=$db->prepare("SELECT a.id,a.type,COALESCE(SUM(l.debit),0) d,COALESCE(SUM(l.credit),0) c FROM accounts a LEFT JOIN journal_lines l ON l.account_id=a.id LEFT JOIN journal_entries e ON e.id=l.entry_id AND e.entry_date<=? WHERE a.type IN ('asset','liability','equity') GROUP BY a.id ORDER BY a.id");
+   $q=$db->prepare("SELECT a.id,a.type,COALESCE(x.d,0) d,COALESCE(x.c,0) c FROM accounts a LEFT JOIN (SELECT l.account_id,SUM(l.debit) d,SUM(l.credit) c FROM journal_lines l JOIN journal_entries e ON e.id=l.entry_id WHERE e.entry_date<=? GROUP BY l.account_id) x ON x.account_id=a.id WHERE a.type IN ('asset','liability','equity') ORDER BY a.id");
    $q->execute([$prior]); $lines=[];
    foreach($q as $a){$net=round((float)$a['d']-(float)$a['c'],2); if(abs($net)<0.01) continue; $lines[]=[(int)$a['id'],$net<0?0:abs($net),$net>0?0:abs($net)];}
    if($lines){$sumD=array_sum(array_column($lines,1));$sumC=array_sum(array_column($lines,2));$diff=round($sumD-$sumC,2);if(abs($diff)>0.01){$lines[]=[6,$diff<0?abs($diff):0,$diff>0?abs($diff):0];}
