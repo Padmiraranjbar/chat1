@@ -80,7 +80,9 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             $msg='ثبت شد؛ تنظیمات ذخیره شد.'; $isSuccess=true;
         }
     } catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); error_log('Accounting application error: '.$e->getMessage()); $msg='عملیات انجام نشد. لطفاً اطلاعات را بررسی کنید و دوباره تلاش کنید.'; $isSuccess=false; }
+    if ($isSuccess) { $_SESSION['flash_success']=$msg; header('Location: index.php'); exit; }
 }
+if (isset($_SESSION['flash_success'])) { $msg=(string)$_SESSION['flash_success']; $isSuccess=true; unset($_SESSION['flash_success']); }
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
 $products=$pdo->query('SELECT * FROM products ORDER BY name')->fetchAll();
 $settings=$pdo->query('SELECT * FROM settings WHERE id=1')->fetch() ?: ['business_name'=>'کسب‌وکار من','business_type'=>'store','currency'=>'تومان','company_address'=>'','phone'=>'','email'=>'','logo_path'=>'','header_text'=>''];
