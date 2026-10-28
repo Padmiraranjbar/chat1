@@ -6,13 +6,12 @@ DirectoryIndex index.php
   Require all denied
 </FilesMatch>
 
-# Deny access to hidden files and directories.
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  # Keep certificate validation available on hosts that use ACME/Let's Encrypt.
+  RewriteRule ^\.well-known/ - [L]
+  # Deny access to other hidden files and directories.
   RewriteRule "(^|/)\." - [F,L]
-</IfModule>
-
-# Prevent direct requests to PHP source directories; PHP includes still work.
-<IfModule mod_rewrite.c>
+  # Legacy files are included by PHP, not requested directly by browsers.
   RewriteRule ^(app|legacy)(/|$) - [F,L]
 </IfModule>
