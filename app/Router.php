@@ -4,6 +4,7 @@ namespace App;
 use App\Controllers\HomeController;
 use App\Controllers\FiscalYearController;
 use App\Controllers\PrintController;
+use App\Controllers\AccountsController;
 final class Router {
  public function dispatch(): void {
   $route=(string)($_GET['route']??'home');
