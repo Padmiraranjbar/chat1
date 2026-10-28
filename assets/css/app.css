@@ -76,3 +76,11 @@ img,svg,video{max-width:100%;height:auto}
 .dialog-backdrop{position:fixed;inset:0;z-index:1001;background:rgba(15,23,42,.48);backdrop-filter:blur(2px)}
 .error-msg{background:#fff0f0!important;color:#9b1c1c;border:1px solid #f2b8b8}
 body.dialog-visible{overflow:hidden}
+
+
+/* PWA install action */
+.pwa-install-button{background:#176b42;border-color:#176b42;color:#fff;box-shadow:0 3px 10px #176b4222}
+.pwa-install-button[hidden]{display:none!important}
+.app-header .pwa-install-button{margin-inline-start:auto}
+@media(max-width:768px){.app-header .pwa-install-button{width:100%;margin:4px 0}}
+@media(display-mode:standalone){.pwa-install-button{display:none!important}}
