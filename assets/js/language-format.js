@@ -11,11 +11,8 @@ function digits(value,lang){
 }
 function formatText(text,lang){
  return text.replace(/\d[\d,]*(?:\.\d+)?/g,function(token){
-  var clean=token.replace(/,/g,'');
-  if(!/^\d+(?:\.\d+)?$/.test(clean))return token;
-  var parts=clean.split('.');
-  if(parts[0].length>=4)parts[0]=Number(parts[0]).toLocaleString(lang==='fa'?'fa-IR':lang==='ar'?'ar':'en-US',{useGrouping:true,maximumFractionDigits:0});
-  return digits(parts.join('.'),lang);
+  // Amounts are grouped server-side with number_format(); preserve dates and account codes.
+  return digits(token,lang);
  });
 }
 function run(){
