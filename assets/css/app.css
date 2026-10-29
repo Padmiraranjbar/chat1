@@ -259,3 +259,26 @@ body,input,select,textarea,button,table,th,td,p,li,label,small,strong,span,a{fon
 h1,h2,h3,h4,.app-header h1,.nav-card strong{font-family:'B Titr','B Nazanin',Tahoma,Arial,sans-serif;font-weight:700}
 .language-setting-label{display:flex;flex-direction:column;gap:5px;min-width:180px;font-weight:700}
 html[data-language='en']{direction:ltr}html[data-language='en'] body{text-align:left}html[data-language='en'] td,html[data-language='en'] th{text-align:left}
+
+
+/* Global typography: uses installed B fonts when available; other systems fall back gracefully. */
+html,body,body *:not(code):not(pre){
+  font-family:"B Nazanin","BNazanin","B Nazanin Bold","B Nazanin",Tahoma,Arial,sans-serif !important;
+  font-weight:700;
+}
+h1,h2,h3,h4,h5,h6,.app-header h1,.paper h1,.paper h2,header h1,section>h2{
+  font-family:"B Titr","BTitr","B Titr Bold","B Nazanin",Tahoma,sans-serif !important;
+  font-weight:700;
+}
+input,select,textarea,button,table,th,td,label,p,span,strong,small,a{
+  font-family:"B Nazanin","BNazanin",Tahoma,Arial,sans-serif !important;
+  font-weight:700;
+}
+html[data-language="en"],html[data-language="en"] body,
+html[data-language="en"] body *{
+  font-family:Arial,Helvetica,sans-serif !important;
+}
+html[data-language="en"] h1,html[data-language="en"] h2,html[data-language="en"] h3{
+  font-family:Arial,Helvetica,sans-serif !important;
+}
+html[dir="ltr"] th,html[dir="ltr"] td{text-align:left}
