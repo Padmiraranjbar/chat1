@@ -3,15 +3,52 @@ declare(strict_types=1);
 $configFile = dirname(__DIR__) . '/config.php';
 if (!is_file($configFile)) { http_response_code(500); exit('تنظیمات برنامه کامل نیست.'); }
 $c = require $configFile;
-$adminHash = (string)($c['admin_password_hash'] ?? '');
-if (strlen($adminHash) < 50) {
-    http_response_code(503);
-    echo '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>راه‌اندازی دسترسی مدیر</title><body style="font-family:tahoma;max-width:760px;margin:40px auto;padding:20px"><h2>راه‌اندازی دسترسی مدیر</h2><p>برای جلوگیری از دسترسی عمومی به کدینگ حساب‌ها، ابتدا مقدار <code>admin_password_hash</code> را در فایل محرمانه <code>config.php</code> تنظیم کنید.</p><p>در PHP از تابع <code>password_hash($password, PASSWORD_DEFAULT)</code> برای ساخت هش رمز مدیر استفاده کنید؛ فقط هش را در فایل تنظیمات قرار دهید.</p><p>هش خروجی را در تنظیمات قرار دهید. خود رمز را در GitHub قرار ندهید.</p><p><a href="index.php">بازگشت</a></p></body></html>';
-    exit;
+$config = $c;
+try {
+    $pdo = new PDO("mysql:host={$config['host']};dbname={$config['database']};charset=utf8mb4", $config['username'], $config['password'], [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+    ]);
+    $pdo->exec("CREATE TABLE IF NOT EXISTS app_admin_credentials (
+        id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+        password_hash VARCHAR(255) NOT NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $credential = $pdo->query("SELECT password_hash FROM app_admin_credentials WHERE id=1")->fetchColumn();
+    // Migrate the existing config hash once, so current installations keep their existing password.
+    $legacyHash = (string)($config['admin_password_hash'] ?? '');
+    if (!$credential && strlen($legacyHash) >= 50) {
+        $seed = $pdo->prepare("INSERT IGNORE INTO app_admin_credentials (id,password_hash) VALUES (1,?)");
+        $seed->execute([$legacyHash]);
+        $credential = $pdo->query("SELECT password_hash FROM app_admin_credentials WHERE id=1")->fetchColumn();
+    }
+} catch (Throwable $e) {
+    error_log('Admin credentials initialization failed: '.$e->getMessage());
+    http_response_code(500);
+    exit('اتصال پایگاه داده برقرار نشد. تنظیمات config.php و دسترسی پایگاه داده را بررسی کنید.');
 }
 $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
 $msg = '';
 $isSuccess = false;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'setup_admin_password') {
+    if (!hash_equals($_SESSION['csrf'], (string)($_POST['csrf'] ?? ''))) {
+        $msg = 'درخواست نامعتبر است؛ صفحه را تازه کنید.';
+    } elseif ($credential) {
+        $msg = 'رمز مدیر قبلاً تنظیم شده است. وارد شوید.';
+    } else {
+        $password = (string)($_POST['new_password'] ?? '');
+        $confirm = (string)($_POST['confirm_password'] ?? '');
+        if (strlen($password) < 10) $msg = 'رمز باید حداقل ۱۰ نویسه داشته باشد.';
+        elseif ($password !== $confirm) $msg = 'تکرار رمز با رمز جدید یکسان نیست.';
+        else {
+            $q = $pdo->prepare("INSERT INTO app_admin_credentials (id,password_hash) VALUES (1,?)");
+            $q->execute([password_hash($password, PASSWORD_DEFAULT)]);
+            session_regenerate_id(true);
+            $_SESSION['chart_admin'] = true;
+            $_SESSION['csrf'] = bin2hex(random_bytes(32));
+            header('Location: index.php?route=accounts'); exit;
+        }
+    }
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'logout') {
     if (hash_equals($_SESSION['csrf'], (string)($_POST['csrf'] ?? ''))) {
         unset($_SESSION['chart_admin']);
@@ -24,9 +61,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'login
         $msg = 'درخواست نامعتبر است.';
     } elseif (!empty($_SESSION['chart_login_block_until']) && time() < (int)$_SESSION['chart_login_block_until']) {
         $msg = 'تلاش‌های ورود زیاد بوده؛ چند دقیقه دیگر دوباره امتحان کنید.';
-    } elseif (password_verify((string)($_POST['password'] ?? ''), $adminHash)) {
+    } elseif ($credential && password_verify((string)($_POST['password'] ?? ''), (string)$credential)) {
         session_regenerate_id(true);
         $_SESSION['chart_admin'] = true;
+        $_SESSION['csrf'] = bin2hex(random_bytes(32));
         $_SESSION['chart_login_failures'] = 0;
         unset($_SESSION['chart_login_block_until']);
         header('Location: index.php?route=accounts'); exit;
@@ -39,16 +77,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'login
         $msg = 'رمز عبور نادرست است.';
     }
 }
+if (empty($_SESSION['chart_admin']) && !$credential) {
+    ?>
+    <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تنظیم رمز مدیر</title><link rel="stylesheet" href="assets/css/app.css"></head><body><main><section><h1>تنظیم رمز مدیر</h1><p>برای شروع، یک رمز دلخواه انتخاب کنید. رمز به‌صورت امن هش می‌شود و در پایگاه داده ذخیره خواهد شد؛ نیازی به ساخت هش دستی یا ویرایش فایل تنظیمات نیست.</p><?php if($msg): ?><p class="msg error-msg"><?=htmlspecialchars($msg,ENT_QUOTES,'UTF-8')?></p><?php endif; ?><form method="post"><input type="hidden" name="csrf" value="<?=htmlspecialchars($_SESSION['csrf'],ENT_QUOTES,'UTF-8')?>"><input type="hidden" name="action" value="setup_admin_password"><label>رمز جدید (حداقل ۱۰ نویسه)<input type="password" name="new_password" required minlength="10" autocomplete="new-password"></label><label>تکرار رمز<input type="password" name="confirm_password" required minlength="10" autocomplete="new-password"></label><button type="submit">ذخیره رمز و ورود</button></form><p><a href="index.php">بازگشت به برنامه</a></p></section></main></body></html>
+    <?php
+    exit;
+}
 if (empty($_SESSION['chart_admin'])) {
     ?>
     <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ورود مدیر کدینگ</title><link rel="stylesheet" href="assets/css/app.css"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#174ea6"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="حسابداری"><script src="assets/js/pwa.js" defer></script></head><body><main><section><h1>ورود مدیر کدینگ حساب‌ها</h1><?php if($msg): ?><p class="msg"><?=htmlspecialchars($msg,ENT_QUOTES,'UTF-8')?></p><?php endif; ?><form method="post"><input type="hidden" name="csrf" value="<?=htmlspecialchars($_SESSION['csrf'],ENT_QUOTES,'UTF-8')?>"><input type="hidden" name="action" value="login"><input type="password" name="password" required autocomplete="current-password" placeholder="رمز مدیر"><button>ورود</button></form><p><a href="index.php">بازگشت به برنامه</a></p></section></main></body></html>
     <?php
     exit;
 }
-$config = $c;
-$pdo = new PDO("mysql:host={$config['host']};dbname={$config['database']};charset=utf8mb4", $config['username'], $config['password'], [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-]);
 require dirname(__DIR__) . '/app/Models/ChartOfAccounts.php';
 ensureChartOfAccounts($pdo);
 function ah($value): string { return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'); }
@@ -58,7 +98,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'login
     try {
         if (!hash_equals($_SESSION['csrf'], (string)($_POST['csrf'] ?? ''))) throw new RuntimeException('درخواست نامعتبر است؛ صفحه را تازه کنید.');
         $action = (string)($_POST['action'] ?? '');
-        if ($action === 'save') {
+        if ($action === 'change_password') {
+            $currentPassword = (string)($_POST['current_password'] ?? '');
+            $newPassword = (string)($_POST['new_password'] ?? '');
+            $confirmPassword = (string)($_POST['confirm_password'] ?? '');
+            $storedHash = (string)$pdo->query("SELECT password_hash FROM app_admin_credentials WHERE id=1")->fetchColumn();
+            if (!password_verify($currentPassword, $storedHash)) throw new RuntimeException('رمز فعلی درست نیست.');
+            if (strlen($newPassword) < 10) throw new RuntimeException('رمز جدید باید حداقل ۱۰ نویسه داشته باشد.');
+            if ($newPassword !== $confirmPassword) throw new RuntimeException('تکرار رمز جدید یکسان نیست.');
+            if (password_verify($newPassword, $storedHash)) throw new RuntimeException('رمز جدید باید با رمز فعلی متفاوت باشد.');
+            $q=$pdo->prepare("UPDATE app_admin_credentials SET password_hash=? WHERE id=1");
+            $q->execute([password_hash($newPassword, PASSWORD_DEFAULT)]);
+            session_regenerate_id(true);
+            $_SESSION['csrf'] = bin2hex(random_bytes(32));
+            $msg='رمز عبور با موفقیت تغییر کرد.'; $isSuccess=true;
+        } elseif ($action === 'save') {
             $id = (int)($_POST['id'] ?? 0);
             $code = trim((string)($_POST['code'] ?? ''));
             $title = trim((string)($_POST['title'] ?? ''));
@@ -132,6 +186,7 @@ $parents=$pdo->query("SELECT id,code,title,type,level FROM accounts WHERE is_act
 ?>
 <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>کدینگ حساب‌ها</title><link rel="stylesheet" href="assets/css/app.css"></head><body><main>
 <header class="app-header"><div><h1>کدینگ حساب‌ها</h1><p>گروه ← کل ← معین ← تفصیلی</p></div><form method="post"><input type="hidden" name="csrf" value="<?=ah($_SESSION['csrf'])?>"><input type="hidden" name="action" value="logout"><button type="submit">خروج مدیر</button></form></header>
+<section id="change-admin-password"><h2>تغییر رمز عبور مدیر</h2><form method="post"><input type="hidden" name="csrf" value="<?=ah($_SESSION['csrf'])?>"><input type="hidden" name="action" value="change_password"><label>رمز فعلی<input type="password" name="current_password" required autocomplete="current-password"></label><label>رمز جدید (حداقل ۱۰ نویسه)<input type="password" name="new_password" required minlength="10" autocomplete="new-password"></label><label>تکرار رمز جدید<input type="password" name="confirm_password" required minlength="10" autocomplete="new-password"></label><button type="submit">تغییر رمز</button></form><p class="muted">رمز جدید به‌صورت خودکار هش شده و در پایگاه داده ذخیره می‌شود.</p></section>
 <?php if($msg && !$isSuccess): ?><p class="msg error-msg"><?=ah($msg)?></p><?php endif; ?>
 <?php if($isSuccess): ?><dialog id="result-dialog" class="result-dialog" open aria-labelledby="result-title"><div class="dialog-mark" aria-hidden="true">✓</div><h2 id="result-title">ثبت شد</h2><p><?=ah($msg)?></p><button type="button" id="close-result-dialog" autofocus>متوجه شدم</button></dialog><div class="dialog-backdrop"></div><script>document.body.classList.add('dialog-visible');document.getElementById('close-result-dialog').addEventListener('click',function(){document.getElementById('result-dialog').close();document.querySelector('.dialog-backdrop').remove();document.body.classList.remove('dialog-visible')});</script><?php endif; ?>
 <section><h2><?=$edit?'ویرایش حساب':'ایجاد حساب جدید'?></h2><form method="post"><input type="hidden" name="csrf" value="<?=ah($_SESSION['csrf'])?>"><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?=ah($edit['id']??0)?>">
