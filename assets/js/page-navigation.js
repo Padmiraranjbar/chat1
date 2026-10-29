@@ -25,11 +25,14 @@ function start(){
    dialog.setAttribute('aria-label',labels[page]);
    var bar=document.createElement('div');bar.className='module-dialog-toolbar';
    var heading=document.createElement('h2');heading.textContent=labels[page];
-   var close=document.createElement('a');close.className='button-link';close.href='index.php';close.textContent='بستن ×';
+   var close=document.createElement('a');close.className='button-link';close.href='index.php';close.textContent='← برگشت به داشبورد';
    bar.append(heading,close);
    dialog.appendChild(bar);
    section.hidden=false;
    dialog.appendChild(section);
+   var footer=document.createElement('div');footer.className='module-dialog-footer';
+   var back=document.createElement('a');back.className='button-link module-back-button';back.href='index.php';back.textContent='← برگشت به داشبورد';
+   footer.appendChild(back);dialog.appendChild(footer);
    document.querySelector('main').appendChild(dialog);
    if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');
    close.addEventListener('click',function(){/* normal navigation returns to the dashboard */});
