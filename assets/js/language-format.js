@@ -35,7 +35,6 @@ document.addEventListener('change',function(e){
   document.documentElement.dataset.language=e.target.value;
   document.documentElement.lang=e.target.value;
   document.documentElement.dir=e.target.value==='en'?'ltr':'rtl';
-  window.location.reload();
  }
 });
 })();
