@@ -237,3 +237,8 @@ body[data-current-page="reports"] .dashboard-nav,
 body[data-current-page="balances"] .dashboard-nav,
 body[data-current-page="journal"] .dashboard-nav{display:none!important}
 body[data-current-page="dashboard"] .page-toolbar{display:none!important}
+
+/* Explicit return action at the end of focused transaction dialogs */
+.module-dialog-footer{display:flex;justify-content:flex-start;margin-top:18px;padding-top:14px;border-top:1px solid #e2e8f0}
+.module-dialog-footer .module-back-button{min-height:46px;padding:10px 18px;border-radius:10px;font-weight:700}
+.module-dialog-toolbar .button-link{min-height:42px;font-weight:700}
