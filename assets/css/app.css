@@ -250,3 +250,12 @@ body[data-current-page="dashboard"] .page-toolbar{display:none!important}
 @keyframes dbuy-logo-stationary-shine{0%{transform:translate(-65%,-65%)}100%{transform:translate(65%,65%)}}
 @media(prefers-reduced-motion:reduce){.logo-shine-overlay{display:none!important}}
 @media print{.logo-shine-overlay{display:none!important}}
+
+/* Persian accounting typography and language-ready layout */
+@font-face{font-family:'B Nazanin';src:local('B Nazanin'),local('B Nazanin Bold');font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:'B Titr';src:local('B Titr'),local('B Titr Bold');font-weight:700;font-style:normal;font-display:swap}
+html{font-family:'B Nazanin',Tahoma,Arial,sans-serif;font-weight:700}
+body,input,select,textarea,button,table,th,td,p,li,label,small,strong,span,a{font-family:'B Nazanin',Tahoma,Arial,sans-serif;font-weight:700}
+h1,h2,h3,h4,.app-header h1,.nav-card strong{font-family:'B Titr','B Nazanin',Tahoma,Arial,sans-serif;font-weight:700}
+.language-setting-label{display:flex;flex-direction:column;gap:5px;min-width:180px;font-weight:700}
+html[data-language='en']{direction:ltr}html[data-language='en'] body{text-align:left}html[data-language='en'] td,html[data-language='en'] th{text-align:left}
