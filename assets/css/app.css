@@ -242,3 +242,11 @@ body[data-current-page="dashboard"] .page-toolbar{display:none!important}
 .module-dialog-footer{display:flex;justify-content:flex-start;margin-top:18px;padding-top:14px;border-top:1px solid #e2e8f0}
 .module-dialog-footer .module-back-button{min-height:46px;padding:10px 18px;border-radius:10px;font-weight:700}
 .module-dialog-toolbar .button-link{min-height:42px;font-weight:700}
+
+/* The logo itself never moves; only a diagonal light streak crosses its existing position */
+.brand-flight,.brand-flight-wrap{display:none!important;animation:none!important}
+.logo-shine-overlay{position:absolute;z-index:99989;pointer-events:none;overflow:hidden;border-radius:inherit;background:transparent}
+.logo-shine-overlay:after{content:"";position:absolute;inset:-70%;background:linear-gradient(135deg,transparent 43%,rgba(255,255,255,0) 47%,rgba(255,255,230,.95) 49.5%,rgba(255,255,255,.98) 50.5%,rgba(255,255,255,0) 53%,transparent 57%);transform:translate(-65%,-65%);animation:dbuy-logo-stationary-shine 1.3s ease-in-out both}
+@keyframes dbuy-logo-stationary-shine{0%{transform:translate(-65%,-65%)}100%{transform:translate(65%,65%)}}
+@media(prefers-reduced-motion:reduce){.logo-shine-overlay{display:none!important}}
+@media print{.logo-shine-overlay{display:none!important}}
