@@ -282,3 +282,27 @@ html[data-language="en"] h1,html[data-language="en"] h2,html[data-language="en"]
   font-family:Arial,Helvetica,sans-serif !important;
 }
 html[dir="ltr"] th,html[dir="ltr"] td{text-align:left}
+
+
+/* Global typography: B Titr headings and bold B Nazanin body text.
+   If these fonts are not installed on the host computer, the browser uses the listed fallbacks. */
+body, input, select, textarea, button, table, th, td, label, p, a, small, strong {
+  font-family: "B Nazanin", "BNazanin", Tahoma, Arial, sans-serif;
+  font-weight: 700;
+}
+h1, h2, h3, h4, h5, h6, .app-header h1, .nav-card strong, .dialog-title {
+  font-family: "B Titr", "BTitr", "B Nazanin", Tahoma, Arial, sans-serif;
+  font-weight: 700;
+}
+html[data-language="en"] body,
+html[data-language="en"] input,
+html[data-language="en"] select,
+html[data-language="en"] textarea,
+html[data-language="en"] button,
+html[data-language="en"] table,
+html[data-language="en"] th,
+html[data-language="en"] td {
+  font-family: Arial, Tahoma, sans-serif;
+}
+.language-setting-label{display:flex;align-items:center;gap:10px;flex:1 1 220px;font-weight:700}
+.language-setting-label select{min-width:140px}
