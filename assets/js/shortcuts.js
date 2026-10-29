@@ -1,14 +1,18 @@
 (function () {
-  "use strict";
-  var shortcuts = { F2: "product", F3: "purchase", F4: "sale" };
-  document.addEventListener("keydown", function (event) {
-    var targetId = shortcuts[event.key];
-    if (!targetId || event.altKey || event.ctrlKey || event.metaKey) return;
+  'use strict';
+  // Function keys must navigate to the dedicated page because module forms are no longer
+  // displayed together on the dashboard.
+  var shortcuts = {
+    F2: { page: 'product', label: 'تعریف کالا' },
+    F3: { page: 'purchase', label: 'ثبت خرید' },
+    F4: { page: 'sale', label: 'ثبت فروش' }
+  };
+  document.addEventListener('keydown', function (event) {
+    var shortcut = shortcuts[event.key];
+    if (!shortcut || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    var target = event.target;
+    if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
     event.preventDefault();
-    var section = document.getElementById(targetId);
-    if (!section) return;
-    section.scrollIntoView({ behavior: "smooth", block: "start" });
-    var field = section.querySelector('select, input:not([type="hidden"]), button');
-    if (field) window.setTimeout(function () { field.focus(); }, 180);
+    window.location.href = 'index.php?page=' + encodeURIComponent(shortcut.page);
   });
 })();
